@@ -33,9 +33,10 @@ def softmax_loss_naive(W, X, y, reg):
   scores = np.matmul(X, W)
   scores -= np.expand_dims(np.amax(scores, axis=1), 1)
   
-  softmaxed = np.exp(scores)
-  losses = -1 * np.log(softmaxed[np.arange(y.shape[0]), y] / np.sum(softmaxed, axis=1))
-  loss = np.sum(losses) / num_train
+  softmax = np.exp(scores)
+  cross_entropy = -1 * np.log(softmax[np.arange(y.shape[0]), y] / np.sum(softmax, axis=1))
+  loss = np.sum(cross_entropy) / num_train
+  loss += 0.5 * reg * np.sum(W * W)
 
   
   #############################################################################
@@ -55,6 +56,7 @@ def softmax_loss_vectorized(W, X, y, reg):
   loss = 0.0
   dW = np.zeros_like(W)
 
+  num_train = X.shape[0]
   #############################################################################
   # TODO: Compute the softmax loss and its gradient using no explicit loops.  #
   # Store the loss in loss and the gradient in dW. If you are not careful     #
@@ -64,9 +66,10 @@ def softmax_loss_vectorized(W, X, y, reg):
   scores = np.matmul(X, W)
   scores -= np.expand_dims(np.amax(scores, axis=1), 1)
   
-  softmaxed = np.exp(scores)
-  losses = -1 * np.log(softmaxed[np.arange(y.shape[0]), y] / np.sum(softmaxed, axis=1))
-  loss = np.sum(losses) / num_train
+  softmax = np.exp(scores)
+  cross_entropy = -1 * np.log(softmax[np.arange(y.shape[0]), y] / np.sum(softmax, axis=1))
+  loss = np.sum(cross_entropy) / num_train
+  loss += 0.5 * reg * np.sum(W * W)
     
   #############################################################################
   #                          END OF YOUR CODE                                 #
