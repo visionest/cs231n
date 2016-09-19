@@ -104,8 +104,6 @@ def softmax_loss_vectorized(W, X, y, reg):
   
   dW = np.mean(np.expand_dims(X, 1) * np.expand_dims(p-yi, 2), axis=0).T
   dW += reg * W
-  
-  # calculate gradient
 
   #############################################################################
   #                          END OF YOUR CODE                                 #

@@ -79,7 +79,7 @@ def svm_loss_vectorized(W, X, y, reg):
   num_train = X.shape[0]
     
   costs = np.matmul(X, W)
-  diffs = costs - costs[np.arange(y.shape[0]), y].reshape(500,1) + 1
+  diffs = costs - np.expand_dims(costs[np.arange(y.shape[0]), y], 1) + 1
   hinge_losses = np.maximum(diffs,0)
   hinge_losses[np.arange(y.shape[0]), y] = 0
   loss = np.sum(hinge_losses)
