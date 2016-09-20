@@ -94,6 +94,7 @@ class TwoLayerNet(object):
     # classifier loss. So that your results match ours, multiply the            #
     # regularization loss by 0.5                                                #
     #############################################################################
+    scores -= np.max(scores)
     scores_exp = np.exp(scores)
     scores_exp_sum = np.sum(scores_exp, axis=1)
     scores_exp_y = scores_exp[np.arange(scores.shape[0]), y]
@@ -101,7 +102,7 @@ class TwoLayerNet(object):
     
     cross_entropy = -1 * np.log(softmax)
     loss = np.mean(cross_entropy)
-    loss += 0.5 * reg * (np.sum(W1 * W1) + np.sum(b1 * b1) + np.sum(W2 * W2) + np.sum(b2 * b2))
+    loss += 0.5 * reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -118,10 +119,22 @@ class TwoLayerNet(object):
     yi[range(y.shape[0]), y] = 1
     
     dscores = p - yi
-    grads['W2'] = np.mean(np.expand_dims(X2, 1) * np.expand_dims(dscores, 2), axis=0).T
-    grads['W2'] += reg * W2
-    grads['b2'] = np.mean(dscores, axis=0)
-    grads['b2'] += reg * b2
+
+    dW2 = np.mean(np.expand_dims(X2, 1) * np.expand_dims(dscores, 2), axis=0).T
+    dW2 += reg * W2
+    db2 = np.mean(dscores, axis=0)
+
+    tmp = np.matmul(dscores, W2.T) * (X2 > 0)
+    
+    dW1 = W1
+    dW1 = np.mean(np.expand_dims(X, 1) * np.expand_dims(tmp, 2), axis=0).T
+    dW1 += reg * W1
+    db1 = np.mean(tmp, axis=0)
+    
+    grads['W1'] = dW1
+    grads['b1'] = db1
+    grads['W2'] = dW2
+    grads['b2'] = db2
     
     #############################################################################
     #                              END OF YOUR CODE                             #
@@ -166,7 +179,9 @@ class TwoLayerNet(object):
       # TODO: Create a random minibatch of training data and labels, storing  #
       # them in X_batch and y_batch respectively.                             #
       #########################################################################
-      pass
+      indices = np.random.choice(X.shape[0], batch_size)
+      X_batch = X[indices]
+      y_batch = y[indices]
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -181,7 +196,10 @@ class TwoLayerNet(object):
       # using stochastic gradient descent. You'll need to use the gradients   #
       # stored in the grads dictionary defined above.                         #
       #########################################################################
-      pass
+      self.params['W1'] -= learning_rate * grads['W1']
+      self.params['b1'] -= learning_rate * grads['b1']
+      self.params['W2'] -= learning_rate * grads['W2']
+      self.params['b2'] -= learning_rate * grads['b2']
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -226,7 +244,11 @@ class TwoLayerNet(object):
     ###########################################################################
     # TODO: Implement this function; it should be VERY simple!                #
     ###########################################################################
-    pass
+    W1, b1 = self.params['W1'], self.params['b1']
+    W2, b2 = self.params['W2'], self.params['b2']
+    X2 = np.maximum(0, np.dot(X, W1) + b1)
+    scores = np.dot(X2, W2) + b2
+    y_pred = np.argmax(scores, axis=1)
     ###########################################################################
     #                              END OF YOUR CODE                           #
     ###########################################################################
