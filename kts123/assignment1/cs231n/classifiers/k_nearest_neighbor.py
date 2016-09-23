@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import stats
 
 class KNearestNeighbor(object):
   """ a kNN classifier with L2 distance """
@@ -71,7 +72,12 @@ class KNearestNeighbor(object):
         # training point, and store the result in dists[i, j]. You should   #
         # not use a loop over dimension.                                    #
         #####################################################################
-        pass
+        testi   = X[i]
+        trainj  = self.X_train[j]
+        
+        diff    = (testi - trainj)
+        square  = np.square(diff)
+        dists[i][j] = np.sqrt(np.sum(square))
         #####################################################################
         #                       END OF YOUR CODE                            #
         #####################################################################
@@ -93,7 +99,12 @@ class KNearestNeighbor(object):
       # Compute the l2 distance between the ith test point and all training #
       # points, and store the result in dists[i, :].                        #
       #######################################################################
-      pass
+      testi    = X[i]
+      trains   = self.X_train
+    
+      diffs    = testi - trains
+      squares  = np.square(diffs)
+      dists[i] = np.sqrt(np.sum(squares, axis = 1)) 
       #######################################################################
       #                         END OF YOUR CODE                            #
       #######################################################################
@@ -121,7 +132,17 @@ class KNearestNeighbor(object):
     # HINT: Try to formulate the l2 distance using matrix multiplication    #
     #       and two broadcast sums.                                         #
     #########################################################################
-    pass
+    tests   = X
+    trains  = self.X_train
+     
+    sA = np.sum(np.square(tests), axis = 1)
+    sB = np.sum(np.square(trains), axis = 1)
+    sAplusSB = sA.reshape(sA.shape[0],1) + sB
+    AB = np.dot(tests, np.transpose(trains))
+    squaress = sAplusSB -2*AB
+    
+    dists     = np.sqrt(squaress)
+    
     #########################################################################
     #                         END OF YOUR CODE                              #
     #########################################################################
@@ -153,7 +174,8 @@ class KNearestNeighbor(object):
       # neighbors. Store these labels in closest_y.                           #
       # Hint: Look up the function numpy.argsort.                             #
       #########################################################################
-      pass
+      closest_y = np.argsort(dists[i])[0:k]
+     
       #########################################################################
       # TODO:                                                                 #
       # Now that you have found the labels of the k nearest neighbors, you    #
@@ -161,7 +183,8 @@ class KNearestNeighbor(object):
       # Store this label in y_pred[i]. Break ties by choosing the smaller     #
       # label.                                                                #
       #########################################################################
-      pass
+      labels = [self.y_train[index] for index in closest_y]
+      y_pred[i] = stats.mode(labels)[0]
       #########################################################################
       #                           END OF YOUR CODE                            # 
       #########################################################################
