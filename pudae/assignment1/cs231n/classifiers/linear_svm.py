@@ -76,7 +76,7 @@ def svm_loss_vectorized(W, X, y, reg):
   num_classes = W.shape[1]
   num_train = X.shape[0]
     
-  costs = np.matmul(X, W)
+  costs = np.dot(X, W)
   diffs = costs - np.expand_dims(costs[np.arange(y.shape[0]), y], 1) + 1
   hinge_losses = np.maximum(diffs,0)
   hinge_losses[np.arange(y.shape[0]), y] = 0
@@ -100,15 +100,11 @@ def svm_loss_vectorized(W, X, y, reg):
   # loss.                                                                     #
   #############################################################################
 
-  masks = np.select([hinge_losses<=0, hinge_losses>0], [0, 1])
+  masks = (hinge_losses > 0).astype(int)
   counts = np.sum(masks, axis=1)
-  
-  # TODO: vectorize
-  for i in xrange(masks.shape[0]):
-    masks[i][y[i]] = -1 * counts[i]
-  
-  # TODO: tuning. this code is not fast enough
-  dW = np.sum(np.expand_dims(X, 1) * np.expand_dims(masks, 2), axis=0).T
+  masks[range(masks.shape[0]), y] = -1 * counts
+
+  dW = np.dot(X.T, masks)
   dW /= num_train
 
   dW += reg * W
@@ -117,3 +113,4 @@ def svm_loss_vectorized(W, X, y, reg):
   #############################################################################
 
   return loss, dW
+
