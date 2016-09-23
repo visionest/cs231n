@@ -72,12 +72,12 @@ class KNearestNeighbor(object):
         # training point, and store the result in dists[i, j]. You should   #
         # not use a loop over dimension.                                    #
         #####################################################################
-        testi   = X[i]
-        trainj  = self.X_train[j]
+        A  = X[i]
+        B  = self.X_train[j]
         
-        diff    = (testi - trainj)
-        square  = np.square(diff)
-        dists[i][j] = np.sqrt(np.sum(square))
+        A_minus_B        = (A - B)
+        A_minus_B_square = np.square(A_minus_B)        
+        dists[i][j] = np.sqrt(np.sum(A_minus_B_square))
         #####################################################################
         #                       END OF YOUR CODE                            #
         #####################################################################
@@ -99,12 +99,17 @@ class KNearestNeighbor(object):
       # Compute the l2 distance between the ith test point and all training #
       # points, and store the result in dists[i, :].                        #
       #######################################################################
-      testi    = X[i]
-      trains   = self.X_train
+      A   = X[i]
+      B   = self.X_train
     
-      diffs    = testi - trains
-      squares  = np.square(diffs)
-      dists[i] = np.sqrt(np.sum(squares, axis = 1)) 
+      A_square = np.sum(np.square(A))
+      B_square = np.sum(np.square(B), axis = 1)
+    
+      AB = np.dot(A, np.transpose(B))
+      
+      squares = A_square - 2*AB + B_square
+
+      dists[i] = np.sqrt(squares) 
       #######################################################################
       #                         END OF YOUR CODE                            #
       #######################################################################
@@ -132,14 +137,14 @@ class KNearestNeighbor(object):
     # HINT: Try to formulate the l2 distance using matrix multiplication    #
     #       and two broadcast sums.                                         #
     #########################################################################
-    tests   = X
-    trains  = self.X_train
+    A  = X
+    B  = self.X_train
      
-    sA = np.sum(np.square(tests), axis = 1)
-    sB = np.sum(np.square(trains), axis = 1)
-    sAplusSB = sA.reshape(sA.shape[0],1) + sB
-    AB = np.dot(tests, np.transpose(trains))
-    squaress = sAplusSB -2*AB
+    A_square = np.sum(np.square(A), axis = 1)
+    B_square = np.sum(np.square(B), axis = 1)
+    A_square_plus_B_square = A_square.reshape(A_square.shape[0],1) + B_square
+    AB = np.dot(A, np.transpose(B))
+    squaress = A_square_plus_B_square - 2*AB
     
     dists     = np.sqrt(squaress)
     
