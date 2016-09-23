@@ -71,9 +71,7 @@ class KNearestNeighbor(object):
         # training point, and store the result in dists[i, j]. You should   #
         # not use a loop over dimension.                                    #
         #####################################################################
-        test = X[i]
-        train = self.X_train[j]
-        dists[i][j] = np.sqrt(np.sum(np.square(train - test)))
+        dists[i][j] = np.linalg.norm(self.X_train[j] - X[i])
         #####################################################################
         #                       END OF YOUR CODE                            #
         #####################################################################
@@ -97,8 +95,9 @@ class KNearestNeighbor(object):
       # points, and store the result in dists[i, :].                        #
       #######################################################################
       test_square = np.sum(np.square(X[i]))   
-      train_test_mul = np.matmul(X[i], self.X_train.T)
-      dists[i,:] = np.sqrt(train_square - 2 * train_test_mul + test_square)
+      train_mul_test = np.dot(X[i], self.X_train.T)
+      dists[i] = np.sqrt(train_square - 2 * train_mul_test + test_square)
+      # dists[i] = np.linalg.norm(X[i] - self.X_train, axis=1)
       #######################################################################
       #                         END OF YOUR CODE                            #
       #######################################################################
@@ -127,10 +126,10 @@ class KNearestNeighbor(object):
     #       and two broadcast sums.                                         #
     #########################################################################
     train_square = np.sum(np.square(self.X_train), axis=1)
-    train_test_mul = np.matmul(X, self.X_train.T)
+    train_mul_test = np.dot(X, self.X_train.T)
     test_square = np.sum(np.square(X), axis=1)
     
-    dists = np.sqrt(train_square - (2 * train_test_mul) + test_square.reshape((test_square.shape[0],1)))
+    dists = np.sqrt(train_square - (2 * train_mul_test) + np.expand_dims(test_square, 1))
     #########################################################################
     #                         END OF YOUR CODE                              #
     #########################################################################
@@ -170,7 +169,7 @@ class KNearestNeighbor(object):
       # Store this label in y_pred[i]. Break ties by choosing the smaller     #
       # label.                                                                #
       #########################################################################
-      y_pred[i] = np.unique(k_labels)[-1]
+      y_pred[i] = np.argmax(np.bincount(k_labels))
       #########################################################################
       #                           END OF YOUR CODE                            # 
       #########################################################################
