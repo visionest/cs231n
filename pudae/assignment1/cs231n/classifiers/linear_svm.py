@@ -20,7 +20,6 @@ def svm_loss_naive(W, X, y, reg):
   - gradient with respect to weights W; an array of same shape as W
   """
   dW = np.zeros(W.shape) # initialize the gradient as zero
-  dWT = np.transpose(dW)
 
   # compute the loss and the gradient
   num_classes = W.shape[1]
@@ -35,14 +34,13 @@ def svm_loss_naive(W, X, y, reg):
       margin = scores[j] - correct_class_score + 1 # note delta = 1
       if margin > 0:
         loss += margin
-        dWT[y[i]] -= X[i]
-        dWT[j] += X[i]
+        dW[:, y[i]] -= X[i]
+        dW[:, j] += X[i]
 
   # Right now the loss is a sum over all training examples, but we want it
   # to be an average instead so we divide by num_train.
   loss /= num_train
-  dWT /= num_train
-  dW = np.transpose(dWT)
+  dW /= num_train
 
   # Add regularization to the loss.
   loss += 0.5 * reg * np.sum(W * W)
@@ -78,8 +76,8 @@ def svm_loss_vectorized(W, X, y, reg):
   num_classes = W.shape[1]
   num_train = X.shape[0]
     
-  costs = np.matmul(X, W)
-  diffs = costs - costs[np.arange(y.shape[0]), y].reshape(500,1) + 1
+  costs = np.dot(X, W)
+  diffs = costs - np.expand_dims(costs[np.arange(y.shape[0]), y], 1) + 1
   hinge_losses = np.maximum(diffs,0)
   hinge_losses[np.arange(y.shape[0]), y] = 0
   loss = np.sum(hinge_losses)
@@ -102,15 +100,11 @@ def svm_loss_vectorized(W, X, y, reg):
   # loss.                                                                     #
   #############################################################################
 
-  masks = np.select([hinge_losses<=0, hinge_losses>0], [0, 1])
+  masks = (hinge_losses > 0).astype(int)
   counts = np.sum(masks, axis=1)
-  
-  # TODO: vectorize
-  for i in xrange(masks.shape[0]):
-    masks[i][y[i]] = -1 * counts[i]
-  
-  # TODO: tuning. this code is not fast enough
-  dW = np.sum(np.expand_dims(X, 1) * np.expand_dims(masks, 2), axis=0).T
+  masks[range(masks.shape[0]), y] = -1 * counts
+
+  dW = np.dot(X.T, masks)
   dW /= num_train
 
   dW += reg * W
@@ -119,3 +113,4 @@ def svm_loss_vectorized(W, X, y, reg):
   #############################################################################
 
   return loss, dW
+

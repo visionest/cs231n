@@ -30,15 +30,32 @@ def softmax_loss_naive(W, X, y, reg):
   # here, it is easy to run into numeric instability. Don't forget the        #
   # regularization!                                                           #
   #############################################################################
-  scores = np.matmul(X, W)
+  
+  # shape of scores: (N, C)
+  scores = np.dot(X, W)
   scores -= np.expand_dims(np.amax(scores, axis=1), 1)
   
-  softmax = np.exp(scores)
-  cross_entropy = -1 * np.log(softmax[np.arange(y.shape[0]), y] / np.sum(softmax, axis=1))
-  loss = np.sum(cross_entropy) / num_train
+  # shape of softmax: (N, C)
+  scores_exp = np.exp(scores)
+  scores_exp_corr = scores_exp[range(y.shape[0]), y]
+  scores_exp_sum = np.sum(scores_exp, axis=1)
+  softmax = scores_exp_corr / scores_exp_sum
+  
+  # shape of cross_entropy: (N, )
+  cross_entropy = -1 * np.log(softmax + 10**-10)
+  loss = np.mean(cross_entropy)
   loss += 0.5 * reg * np.sum(W * W)
 
+
+  # calculate gradient
+  # shape of p: (N, C)
+  p = scores_exp / np.expand_dims(scores_exp_sum, 1)
+  yi = np.zeros_like(p)
+  yi[range(num_train), y] = 1
   
+  dW = np.dot(X.T, p-yi) / num_train
+  dW += reg * W
+
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################
@@ -63,14 +80,32 @@ def softmax_loss_vectorized(W, X, y, reg):
   # here, it is easy to run into numeric instability. Don't forget the        #
   # regularization!                                                           #
   #############################################################################
-  scores = np.matmul(X, W)
+  
+  # shape of scores: (N, C)
+  scores = np.dot(X, W)
   scores -= np.expand_dims(np.amax(scores, axis=1), 1)
   
-  softmax = np.exp(scores)
-  cross_entropy = -1 * np.log(softmax[np.arange(y.shape[0]), y] / np.sum(softmax, axis=1))
-  loss = np.sum(cross_entropy) / num_train
+  # shape of softmax: (N, C)
+  scores_exp = np.exp(scores)
+  scores_exp_corr = scores_exp[range(y.shape[0]), y]
+  scores_exp_sum = np.sum(scores_exp, axis=1)
+  softmax = scores_exp_corr / scores_exp_sum
+  
+  # shape of cross_entropy: (N, )
+  cross_entropy = -1 * np.log(softmax + 10**-10)
+  loss = np.mean(cross_entropy)
   loss += 0.5 * reg * np.sum(W * W)
-    
+
+
+  # calculate gradient
+  # shape of p: (N, C)
+  p = scores_exp / np.expand_dims(scores_exp_sum, 1)
+  yi = np.zeros_like(p)
+  yi[range(num_train), y] = 1
+  
+  dW = np.dot(X.T, p-yi) / num_train
+  dW += reg * W
+
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################
