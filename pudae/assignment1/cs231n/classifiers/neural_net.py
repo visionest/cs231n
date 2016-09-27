@@ -93,7 +93,7 @@ class TwoLayerNet(object):
     # classifier loss. So that your results match ours, multiply the            #
     # regularization loss by 0.5                                                #
     #############################################################################
-    scores -= np.max(scores)
+    scores -= np.nanmax(scores)
     scores_exp = np.exp(scores)
     scores_exp_sum = np.sum(scores_exp, axis=1)
     softmax = scores_exp / np.expand_dims(scores_exp_sum + 10**-10, 1) # prevent dividing by zero
