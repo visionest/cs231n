@@ -74,8 +74,7 @@ class TwoLayerNet(object):
     # Store the result in the scores variable, which should be an array of      #
     # shape (N, C).                                                             #
     #############################################################################
-    X2_ = np.dot(X, W1) + b1
-    X2 = np.maximum(0, X2_)
+    X2 = np.maximum(0, np.dot(X, W1) + b1)
     scores = np.dot(X2, W2) + b2
     #############################################################################
     #                              END OF YOUR CODE                             #
@@ -97,12 +96,11 @@ class TwoLayerNet(object):
     scores -= np.max(scores)
     scores_exp = np.exp(scores)
     scores_exp_sum = np.sum(scores_exp, axis=1)
-    scores_exp_y = scores_exp[np.arange(scores.shape[0]), y]
-    softmax = scores_exp_y / scores_exp_sum
+    softmax = scores_exp / np.expand_dims(scores_exp_sum + 10**-10, 1) # prevent dividing by zero
     
-    cross_entropy = -1 * np.log(softmax)
+    cross_entropy = -1 * np.log(softmax[range(N), y] + 10**-10)  # prevent dividing by zero
     loss = np.mean(cross_entropy)
-    loss += 0.5 * reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
+    loss += 0.5 * reg * (np.sum(np.square(W1)) + np.sum(np.square(W2)))
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -114,20 +112,17 @@ class TwoLayerNet(object):
     # and biases. Store the results in the grads dictionary. For example,       #
     # grads['W1'] should store the gradient on W1, and be a matrix of same size #
     #############################################################################
-    p = scores_exp / np.expand_dims(scores_exp_sum, 1)
-    yi = np.zeros(p.shape)
-    yi[range(y.shape[0]), y] = 1
-    
-    dscores = p - yi
+    dscores = softmax.copy()
+    dscores[range(N), y] -= 1
 
-    dW2 = np.mean(np.expand_dims(X2, 1) * np.expand_dims(dscores, 2), axis=0).T
+    dW2 = np.dot(X2.T, dscores) / N
     dW2 += reg * W2
     db2 = np.mean(dscores, axis=0)
 
     tmp = np.matmul(dscores, W2.T) * (X2 > 0)
     
     dW1 = W1
-    dW1 = np.mean(np.expand_dims(X, 1) * np.expand_dims(tmp, 2), axis=0).T
+    dW1 = np.dot(X.T, tmp) / N
     dW1 += reg * W1
     db1 = np.mean(tmp, axis=0)
     
