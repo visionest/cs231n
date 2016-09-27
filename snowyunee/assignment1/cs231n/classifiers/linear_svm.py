@@ -34,13 +34,18 @@ def svm_loss_naive(W, X, y, reg):
       margin = scores[j] - correct_class_score + 1 # note delta = 1
       if margin > 0:
         loss += margin
+        dW[:,y[i]] -= X[i]
+        dW[:,j] += X[i]
 
   # Right now the loss is a sum over all training examples, but we want it
   # to be an average instead so we divide by num_train.
   loss /= num_train
+  dW /= num_train
 
   # Add regularization to the loss.
   loss += 0.5 * reg * np.sum(W * W)
+  # 1/2 * reg * W^2 =>  reg * W 
+  dW += reg * W
 
   #############################################################################
   # TODO:                                                                     #
@@ -69,7 +74,35 @@ def svm_loss_vectorized(W, X, y, reg):
   # Implement a vectorized version of the structured SVM loss, storing the    #
   # result in loss.                                                           #
   #############################################################################
-  pass
+  num_classes = W.shape[1]
+  num_train = X.shape[0]
+  loss = 0.0
+  for i in xrange(num_train):
+    y_i = y[i]
+    print 'i:', i, ', y_i:', y_i
+    scores = X[i].dot(W)
+    correct_class_score = scores[y_i]
+    margin = scores - correct_class_score + 1
+    if (i == 1):
+      print 'margin'
+      print margin
+      print 'margin to bool'
+      print margin > 0
+    margin = margin * margin[margin > 0]
+    margin[y_i] = 0
+    loss += margin.sum()
+#        dW[:,y[i]] -= X[i]
+ #       dW[:,j] += X[i]
+
+  # Right now the loss is a sum over all training examples, but we want it
+  # to be an average instead so we divide by num_train.
+  loss /= num_train
+  dW /= num_train
+
+  # Add regularization to the loss.
+  loss += 0.5 * reg * np.sum(W * W)
+  # 1/2 * reg * W^2 =>  reg * W 
+  dW += reg * W
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -84,7 +117,7 @@ def svm_loss_vectorized(W, X, y, reg):
   # to reuse some of the intermediate values that you used to compute the     #
   # loss.                                                                     #
   #############################################################################
-  pass
+  
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
