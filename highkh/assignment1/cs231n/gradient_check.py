@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 from random import randrange
 
@@ -116,7 +117,8 @@ def grad_check_sparse(f, x, analytic_grad, num_checks=10, h=1e-5):
     x[ix] = oldval - h # increment by h
     fxmh = f(x) # evaluate f(x - h)
     x[ix] = oldval # reset
-
+    
+    """absolute error도 볼 수 있게 추가"""
     grad_numerical = (fxph - fxmh) / (2 * h)
     grad_analytic = analytic_grad[ix]
     abs_error = abs(grad_numerical - grad_analytic) #######
