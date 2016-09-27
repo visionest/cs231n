@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 
 class KNearestNeighbor(object):
@@ -10,6 +11,9 @@ class KNearestNeighbor(object):
     """
     Train the classifier. For k-nearest neighbors this is just 
     memorizing the training data.
+    
+    >> 별도의 학습과정이 없음. 데이터와 그에 해당하는 정답을 가지고만 있으면 된다.
+       실제로 예측할 때는 각각의 거리를 다 계산하여 가까운 k개만 가지고 와야함
 
     Inputs:
     - X: A numpy array of shape (num_train, D) containing the training data
@@ -23,6 +27,8 @@ class KNearestNeighbor(object):
   def predict(self, X, k=1, num_loops=0):
     """
     Predict labels for test data using this classifier.
+    
+    >> 예측 방법 : 가까운 유클리드 거리
 
     Inputs:
     - X: A numpy array of shape (num_test, D) containing test data consisting
@@ -71,7 +77,10 @@ class KNearestNeighbor(object):
         # training point, and store the result in dists[i, j]. You should   #
         # not use a loop over dimension.                                    #
         #####################################################################
-        pass
+        
+        dists[i, j] = np.sqrt(np.sum(np.square(self.X_train[j, :] - X[i, :])))
+        #dists[i, j] = np.linalg.norm(self.X_train[j, :] - X[i, :])
+        #ipython 파일에 있는것 보고 처음 쓴 것
         #####################################################################
         #                       END OF YOUR CODE                            #
         #####################################################################
@@ -87,13 +96,26 @@ class KNearestNeighbor(object):
     num_test = X.shape[0]
     num_train = self.X_train.shape[0]
     dists = np.zeros((num_test, num_train))
+    
+    #########
+    train_square = np.sum(np.square(self.X_train), axis=1)
+    #########
+    
     for i in xrange(num_test):
       #######################################################################
       # TODO:                                                               #
       # Compute the l2 distance between the ith test point and all training #
       # points, and store the result in dists[i, :].                        #
       #######################################################################
-      pass
+      
+      """by pudae"""
+      test_square = np.sum(np.square(X[i]))   
+      train_mul_test = np.dot(X[i], self.X_train.T)
+      dists[i] = np.sqrt(train_square - 2 * train_mul_test + test_square)
+      
+      #dists[i, :] = np.sqrt(np.sum(np.square(self.X_train - X[i, :]), axis=1))
+      #dists[i, :] = np.linalg.norm(self.X_train - X[i,:], axis=1)
+      #ipython 파일에 있는것 보고 처음 쓴 것
       #######################################################################
       #                         END OF YOUR CODE                            #
       #######################################################################
@@ -121,7 +143,16 @@ class KNearestNeighbor(object):
     # HINT: Try to formulate the l2 distance using matrix multiplication    #
     #       and two broadcast sums.                                         #
     #########################################################################
-    pass
+    """
+    >> L2 dist 
+       \sqrt( \sum [x_pt - y_pt]**2 )
+       [x_pt - y_pt]**2 = x_pt**2 -2*x_pt*y_pt + y_pt**2
+    """
+    dot_prod = np.matmul(X, np.transpose(self.X_train))  ##x_pt*y_pt
+    sq_te = np.transpose(np.matrix(np.square(X).sum(axis=1))) ##x_pt**2
+    sq_tr = np.square(self.X_train).sum(axis=1)  ##y_pt**2
+    dists = np.sqrt(sq_tr -2*dot_prod + sq_te)
+    
     #########################################################################
     #                         END OF YOUR CODE                              #
     #########################################################################
@@ -153,7 +184,10 @@ class KNearestNeighbor(object):
       # neighbors. Store these labels in closest_y.                           #
       # Hint: Look up the function numpy.argsort.                             #
       #########################################################################
-      pass
+        
+      sorted_ind = self.y_train[np.argsort(dists[i, :])].flatten()
+      closest_y = sorted_ind[0:k]
+      
       #########################################################################
       # TODO:                                                                 #
       # Now that you have found the labels of the k nearest neighbors, you    #
@@ -161,10 +195,14 @@ class KNearestNeighbor(object):
       # Store this label in y_pred[i]. Break ties by choosing the smaller     #
       # label.                                                                #
       #########################################################################
-      pass
+      
+      y_pred[i] = np.argmax(np.bincount(closest_y))
+      # thanks to other soln
+      # bincount : 양의 정수로 이루어진 array에서 원소값이 몇개 있는지 세어서 
+      # 해당 자리에 개수 표시
+      
       #########################################################################
       #                           END OF YOUR CODE                            # 
       #########################################################################
 
     return y_pred
-
