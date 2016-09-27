@@ -77,32 +77,28 @@ def svm_loss_vectorized(W, X, y, reg):
   num_classes = W.shape[1]
   num_train = X.shape[0]
   loss = 0.0
-  for i in xrange(num_train):
-    y_i = y[i]
-    print 'i:', i, ', y_i:', y_i
-    scores = X[i].dot(W)
-    correct_class_score = scores[y_i]
-    margin = scores - correct_class_score + 1
-    if (i == 1):
-      print 'margin'
-      print margin
-      print 'margin to bool'
-      print margin > 0
-    margin = margin * margin[margin > 0]
-    margin[y_i] = 0
-    loss += margin.sum()
-#        dW[:,y[i]] -= X[i]
- #       dW[:,j] += X[i]
+  #for i in xrange(num_train):
+  #scores = X[i].dot(W)
+  scores = np.tensordot(X,W,([1],[0]))
+  #print scores.shape
+  #(500,10)
+
+  correct_class_score = scores[range(y.shape[0]), y]
+  #print correct_class_score  # (500,)
+  margin = scores - np.expand_dims(correct_class_score,1) + 1
+  #print 'margin:', margin[0]
+  margin_mask = (margin > 0)
+  margin_mask[range(y.shape[0]), y] = 0
+  margin = margin * margin_mask
+  #print 'margin2:', margin[0]
+  loss += margin.sum()
 
   # Right now the loss is a sum over all training examples, but we want it
   # to be an average instead so we divide by num_train.
   loss /= num_train
-  dW /= num_train
 
   # Add regularization to the loss.
   loss += 0.5 * reg * np.sum(W * W)
-  # 1/2 * reg * W^2 =>  reg * W 
-  dW += reg * W
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -117,6 +113,23 @@ def svm_loss_vectorized(W, X, y, reg):
   # to reuse some of the intermediate values that you used to compute the     #
   # loss.                                                                     #
   #############################################################################
+# dW[:,y[i]] -= X[i]
+# dW[:,j] += X[i]
+  #print 'margin_mask1:', margin_mask[0]
+  true_cnts = np.sum(margin_mask, axis=1)
+  #print 'true_cnts1:', true_cnts[0]
+  #print 'ground truth:', y[0]
+  margin_mask = margin_mask.astype(float)
+  margin_mask[range(y.shape[0]), y] = -1 * true_cnts
+  #print 'margin_mask2:', margin_mask[0]
+  X_product_margin = np.expand_dims(X,2) * np.expand_dims(margin_mask,1)
+  #print X_product_margin.shape
+  dW = np.sum(np.expand_dims(X,2) * np.expand_dims(margin_mask,1), axis=0)
+
+  dW /= num_train
+
+  # 1/2 * reg * W^2 =>  reg * W 
+  dW += reg * W
   
   #############################################################################
   #                             END OF YOUR CODE                              #
