@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 from cs231n.classifiers.linear_svm import *
 from cs231n.classifiers.softmax import *
@@ -34,6 +35,8 @@ class LinearClassifier(object):
 
     # Run stochastic gradient descent to optimize W
     loss_history = []
+    
+    """현재 들어가 있는 learning rate와 regularization strength 확인용 : random sampling"""
     #############
     if verbose:
         print '-----------learning_rate : %e\t reg : %e----------' % (learning_rate, reg)
@@ -54,6 +57,7 @@ class LinearClassifier(object):
       # replacement is faster than sampling without replacement.              #
       #########################################################################
       
+      """훈련용 데이터에서 random하게 mini batch 가져옴"""
       sample_indx = np.random.choice(np.arange(num_train), batch_size)
       X_batch = X[sample_indx]
       y_batch = y[sample_indx]
@@ -72,6 +76,7 @@ class LinearClassifier(object):
       # Update the weights using the gradient and the learning rate.          #
       #########################################################################
       
+      """SGD update"""
       self.W -= learning_rate*grad
       
       #########################################################################
@@ -102,6 +107,7 @@ class LinearClassifier(object):
     # Implement this method. Store the predicted labels in y_pred.            #
     ###########################################################################
     
+    """클래스 예측 : WX 에서 가장 큰 것"""
     y_pred = np.argmax(X.dot(self.W), axis=1)
     
     ###########################################################################

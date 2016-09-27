@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 from random import shuffle
 
@@ -22,23 +23,24 @@ def svm_loss_naive(W, X, y, reg):
   dW = np.zeros(W.shape) # initialize the gradient as zero
   
   # compute the loss and the gradient
-  num_classes = W.shape[1]
-  num_train = X.shape[0]
+  num_classes = W.shape[1] # C
+  num_train = X.shape[0] # D
   loss = 0.0
 
   for i in xrange(num_train):
-    scores = X[i].dot(W)
-    correct_class_score = scores[y[i]]
-    num_incorrect = 0 ##
+    scores = X[i].dot(W)  # 예측 점수
+    correct_class_score = scores[y[i]]  # 정답
+    num_incorrect = 0 ## (margin > 0) = # of incorrect classes
     for j in xrange(num_classes):
       if j == y[i]:
         continue
+      # margin = w_j * x_i - w_{y[i]}*x_i + 1
       margin = scores[j] - correct_class_score + 1 # note delta = 1
-      if margin > 0:
+      if margin > 0: # incorrect class = increase loss
         loss += margin
-        dW[:, j] += X[i]  ##
+        dW[:, j] += X[i]  # dW_j L_i = -(\sum_{j!=y_i} indicator(margin>0))*x_i
         num_incorrect += 1  ##
-    dW[:, y[i]] -= num_incorrect*X[i] ##
+    dW[:, y[i]] -= num_incorrect*X[i] ## indicator output은 0 or 1이기 때문에 incorretc 개수만 세어주고 곱하면 된다
 
   # Right now the loss is a sum over all training examples, but we want it
   # to be an average instead so we divide by num_train.
@@ -81,8 +83,13 @@ def svm_loss_vectorized(W, X, y, reg):
   num_train = X.shape[0]
       
   scores = X.dot(W)
+  print 'scr', scores , scores.shape[0], scores.shape[1]
+  print 'y' , y , y.shape[0]
   correct_class_score = scores[np.arange(num_train), y]
-  margins = np.maximum(0, scores - correct_class_score[:, np.newaxis] + 1) # delta = 1
+  print 'ccs', correct_class_score , correct_class_score.shape[0]
+  margins = np.maximum(0, scores - correct_class_score[:, np.newaxis] + 1) # delta = 1 # [:, np.newaxis] = like transpose
+  print 'marg', margins , margins.shape[0] , margins.shape[1]
+  # incorrect만 loss증가에 영향. 따라서 correct는 0
   margins[np.arange(num_train), y] = 0
   loss = np.sum(margins)
 
@@ -105,6 +112,7 @@ def svm_loss_vectorized(W, X, y, reg):
   #############################################################################
 
   X_mask = np.zeros(margins.shape)
+  # incorrect인 경우만 개수를 세어주기 위해 1로 변경
   X_mask[margins > 0] = 1
   incorrect_counts = np.sum(X_mask, axis=1)
   X_mask[np.arange(num_train), y] = -incorrect_counts
