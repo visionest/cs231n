@@ -122,9 +122,11 @@ def svm_loss_vectorized(W, X, y, reg):
   margin_mask = margin_mask.astype(float)
   margin_mask[range(y.shape[0]), y] = -1 * true_cnts
   #print 'margin_mask2:', margin_mask[0]
-  X_product_margin = np.expand_dims(X,2) * np.expand_dims(margin_mask,1)
-  #print X_product_margin.shape
-  dW = np.sum(np.expand_dims(X,2) * np.expand_dims(margin_mask,1), axis=0)
+  
+  #X_product_margin = np.expand_dims(X,2) * np.expand_dims(margin_mask,1)
+  ##print X_product_margin.shape
+  #dW = np.sum(np.expand_dims(X,2) * np.expand_dims(margin_mask,1), axis=0)
+  dW = np.dot(X.T, margin_mask)
 
   dW /= num_train
 
