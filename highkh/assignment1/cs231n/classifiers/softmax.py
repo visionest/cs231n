@@ -78,7 +78,7 @@ def softmax_loss_vectorized(W, X, y, reg):
   # here, it is easy to run into numeric instability. Don't forget the        #
   # regularization!                                                           #
   #############################################################################
-  
+  """ Thanks to http://cs231n.github.io/neural-networks-case-study/ """
   num_train = X.shape[0]
   train_score = X.dot(W)
   score_exp = np.exp(train_score)
