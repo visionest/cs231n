@@ -24,6 +24,7 @@ def softmax_loss_naive(W, X, y, reg):
   dW = np.zeros_like(W)
 
   num_train = X.shape[0]
+  num_class = W.shape[1]
   #############################################################################
   # TODO: Compute the softmax loss and its gradient using explicit loops.     #
   # Store the loss in loss and the gradient in dW. If you are not careful     #
@@ -33,20 +34,15 @@ def softmax_loss_naive(W, X, y, reg):
   
   for i in xrange(num_train):
     scores = X[i].dot(W)
-    correct_class_score = scores[y[i]]
     scores -= np.amax(scores)
     
     scores_exp = np.exp(scores)
-    scores_exp_sum = np.sum(scores_exp)
-    softmax = scores_exp / scores_exp_sum
+    softmax = scores_exp / np.sum(scores_exp)
     
-    cross_entropy = -1 * np.log(softmax[y[i]] + 10**-10)
-    loss += cross_entropy
+    loss += -np.log(softmax[y[i]] + 10**-10)
     
-    yi = np.zeros_like(softmax)
-    yi[y[i]] = 1
-    
-    dW += np.dot(np.expand_dims(X[i], 1), np.expand_dims(softmax - yi ,0))
+    for c in xrange(num_class):
+      dW[:, c] += X[i] * (softmax[c] - (c == y[i]))
   
   loss /= num_train
   loss += 0.5 * reg * np.sum(W * W)
@@ -80,21 +76,20 @@ def softmax_loss_vectorized(W, X, y, reg):
   #############################################################################
   
   scores = np.dot(X, W)
-  scores -= np.expand_dims(np.amax(scores, axis=1), 1)
+  scores -= np.amax(scores, axis=1, keepdims=True)
   
   scores_exp = np.exp(scores)
-  scores_exp_sum = np.sum(scores_exp, axis=1)
-  softmax = scores_exp / np.expand_dims(scores_exp_sum, 1)
-  softmax_corr = softmax[range(num_train), y]
+  softmax = scores_exp / np.sum(scores_exp, axis=1, keepdims=True)
   
-  cross_entropy = -1 * np.log(softmax_corr + 10**-10)
+  cross_entropy = -np.log(softmax[range(num_train), y] + 10**-10)
   loss = np.mean(cross_entropy)
   loss += 0.5 * reg * np.sum(W * W)
 
-  yi = np.zeros_like(softmax)
-  yi[range(num_train), y] = 1
+  dscores = softmax
+  dscores[range(num_train), y] -= 1
+  dscores /= num_train
   
-  dW = np.dot(X.T, softmax - yi) / num_train
+  dW = np.dot(X.T, dscores)
   dW += reg * W
 
   #############################################################################

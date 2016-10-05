@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 from random import shuffle
 
@@ -29,7 +30,31 @@ def softmax_loss_naive(W, X, y, reg):
   # here, it is easy to run into numeric instability. Don't forget the        #
   # regularization!                                                           #
   #############################################################################
-  pass
+  
+  num_train = X.shape[0]
+  num_class = W.shape[1]
+  
+  for i in xrange(num_train):
+    train_score = X[i].dot(W)
+    label_score = train_score[y[i]]
+    
+    score_exp = np.exp(train_score)
+    deno_sum = np.sum(score_exp)
+    # Softmax
+    frac_exp = score_exp / deno_sum
+    # Cross-entropy
+    ce = -np.log(frac_exp[y[i]])
+    loss += ce
+    # Gradient
+    for c in xrange(num_class):
+      dW[:, c] += X[i] * (frac_exp[c] - (c == y[i]))
+
+  loss /= num_train
+  loss += 0.5 * reg * np.sum(W * W)
+  
+  dW /= num_train
+  dW += reg*W   
+    
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################
@@ -53,7 +78,28 @@ def softmax_loss_vectorized(W, X, y, reg):
   # here, it is easy to run into numeric instability. Don't forget the        #
   # regularization!                                                           #
   #############################################################################
-  pass
+  """ Thanks to http://cs231n.github.io/neural-networks-case-study/ """
+  num_train = X.shape[0]
+  train_score = X.dot(W)
+  score_exp = np.exp(train_score)
+  deno_sum = np.sum(score_exp, axis=1, keepdims=True)
+  
+  # Softmax
+  frac_exp = score_exp / deno_sum
+  # Cross-entropy
+  ce = -np.log(frac_exp[np.arange(num_train), y])
+  loss = np.sum(ce)
+
+  label_indx = np.zeros_like(frac_exp)
+  label_indx[np.arange(num_train), y] = 1
+  # Gradient
+  dW = X.T.dot(frac_exp - label_indx)
+
+  loss /= num_train
+  loss += 0.5 * reg * np.sum(W * W)
+  dW /= num_train
+  dW += reg*W
+  
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################
