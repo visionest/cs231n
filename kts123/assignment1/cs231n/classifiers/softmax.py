@@ -21,7 +21,7 @@ def softmax_loss_naive(W, X, y, reg):
   """
   # Initialize the loss and gradient to zero.
   loss = 0.0
-  dW = np.zeros_like(W)
+  dW = np.zeros_like(W)  # dw.shape = (D,C)
 
   #############################################################################
   # TODO: Compute the softmax loss and its gradient using explicit loops.     #
@@ -29,7 +29,26 @@ def softmax_loss_naive(W, X, y, reg):
   # here, it is easy to run into numeric instability. Don't forget the        #
   # regularization!                                                           #
   #############################################################################
-  pass
+  num_classes = W.shape[1]
+  num_train   = X.shape[0]
+  dW = np.transpose(dW)
+  for i in xrange(num_train):
+    scores = X[i].dot(W)                               # scores.shape = (C,)
+    scores -= np.max(scores)                    
+    correct_class_score = scores[y[i]]
+    softmaxs = np.exp(scores) / np.sum(np.exp(scores)) # softmaxs.shape = (C,)
+    correct_class_softmax = softmaxs[y[i]]
+    loss_i = -1*np.log(correct_class_softmax)
+    loss += loss_i    
+    for j in xrange(num_classes):
+      dW[j] += (softmaxs[j]*X[i])
+      if (j == y[i]):
+        dW[j] += (-1)*X[i]
+  dW = np.transpose(dW)
+        
+  loss /= num_train
+  dW   /= num_train  
+  dW   += reg*W
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################
@@ -43,9 +62,12 @@ def softmax_loss_vectorized(W, X, y, reg):
 
   Inputs and outputs are the same as softmax_loss_naive.
   """
+
   # Initialize the loss and gradient to zero.
   loss = 0.0
   dW = np.zeros_like(W)
+    
+  num_train   = X.shape[0]
 
   #############################################################################
   # TODO: Compute the softmax loss and its gradient using no explicit loops.  #
@@ -53,7 +75,14 @@ def softmax_loss_vectorized(W, X, y, reg):
   # here, it is easy to run into numeric instability. Don't forget the        #
   # regularization!                                                           #
   #############################################################################
-  pass
+  scores   = X.dot(W)                             # score.shape   = (N, C)  
+  scores  -= np.max(scores)
+  exp_scores = np.exp(scores) 
+  softmaxs = np.exp(scores) / np.sum(exp_scores, axis = 1)[:,np.newaxis]  # softmaxs.shape = (N,C)
+  correct_class_softmax = softmaxs[xrange(num_train), y]
+  loss = np.sum(-1*np.log(correct_class_softmax))
+  loss /= num_train    
+
   #############################################################################
   #                          END OF YOUR CODE                                 #
   #############################################################################
