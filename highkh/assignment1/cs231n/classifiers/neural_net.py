@@ -98,17 +98,18 @@ class TwoLayerNet(object):
     # classifier loss. So that your results match ours, multiply the            #
     # regularization loss by 0.5                                                #
     #############################################################################
-    eps = 1e-10
-    scalefc = np.int(N / 2)
-    fc3 -= np.nanmax(fc3 / scalefc)    ## Overflow 방지용 : 가급적 넣어주는게 좋음
+ 
+    #fc3 -= np.nanmax(fc3)    ## Overflow 방지용 : 가급적 넣어주는게 좋음
+    
     nume_exp = np.exp(fc3)
-    #softmax4 = nume_exp / np.sum(nume_exp, axis=1, keepdims=True)
-    #ce = -np.log(softmax4[np.arange(N), y])
-    softmax4 = nume_exp / np.sum(nume_exp + eps, axis=1, keepdims=True)    ## 0으로 나누는 것 방지
-    ce = -np.log(softmax4[np.arange(N), y] + eps)    ## 0으로 나누는 것 방지
-    loss = np.mean(ce)
-    loss += 0.5*reg*np.sum(W1*W1)
-    loss += 0.5*reg*np.sum(W2*W2)
+    softmax4 = nume_exp / np.sum(nume_exp, axis=1, keepdims=True)
+    ce = -np.log(softmax4[np.arange(N), y])
+    
+    #eps = 1e-10
+    #softmax4 = nume_exp / np.sum(nume_exp + eps, axis=1, keepdims=True)    ## 0으로 나누는 것 방지
+    #ce = -np.log(softmax4[np.arange(N), y] + eps)    ## 0으로 나누는 것 방지
+    
+    loss = np.mean(ce) + 0.5*reg*np.sum(W1*W1) + 0.5*reg*np.sum(W2*W2)
        
     #############################################################################
     #                              END OF YOUR CODE                             #
@@ -130,8 +131,10 @@ class TwoLayerNet(object):
     grads['W2'] += reg*W2
     grads['b2'] = np.sum(diff_fc3, axis=0)    # (C,)
     
-    diff_fc1 = np.matmul(diff_fc3, W2.T)   # (N, H)
-    diff_fc1 *= np.maximum(0, ReLU2)   ## 처음에 쓴 것 diff_fc1 = np.maximum(0, ReLU2)
+    diff_fc1 = np.matmul(diff_fc3, W2.T)*(ReLU2 > 0)   # (N, H)
+    ## 처음에 쓴 것 diff_fc1 = np.maximum(0, ReLU2)
+    ## 다음에 쓴것 diff_fc1 *= np.maximum(0, ReLU2) 
+    ##                 >>> diff_fc1에서 positive만 가져와야하는데 이런식으로 쓰면 ReLU2의 양수값을 곱하게 되므로 틀림!!
     
     grads['W1'] = np.matmul(X.T, diff_fc1)    # (D, H)
     grads['W1'] += reg*W1
