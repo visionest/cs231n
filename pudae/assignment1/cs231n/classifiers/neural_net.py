@@ -74,8 +74,9 @@ class TwoLayerNet(object):
     # Store the result in the scores variable, which should be an array of      #
     # shape (N, C).                                                             #
     #############################################################################
-    X2 = np.maximum(0, np.dot(X, W1) + b1)
-    scores = np.dot(X2, W2) + b2
+    X2 = np.dot(X, W1) + b1
+    X2_relu = np.maximum(0, X2)
+    scores = np.dot(X2_relu, W2) + b2
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -93,10 +94,9 @@ class TwoLayerNet(object):
     # classifier loss. So that your results match ours, multiply the            #
     # regularization loss by 0.5                                                #
     #############################################################################
-    scores -= np.nanmax(scores)
+    scores -= np.nanmax(scores, axis=1, keepdims=True)
     scores_exp = np.exp(scores)
-    scores_exp_sum = np.sum(scores_exp, axis=1)
-    softmax = scores_exp / np.expand_dims(scores_exp_sum + 10**-10, 1) # prevent dividing by zero
+    softmax = scores_exp / np.sum(scores_exp, axis=1, keepdims=True)
     
     cross_entropy = -1 * np.log(softmax[range(N), y] + 10**-10)  # prevent dividing by zero
     loss = np.mean(cross_entropy)
@@ -112,19 +112,28 @@ class TwoLayerNet(object):
     # and biases. Store the results in the grads dictionary. For example,       #
     # grads['W1'] should store the gradient on W1, and be a matrix of same size #
     #############################################################################
-    dscores = softmax.copy()
-    dscores[range(N), y] -= 1
-
-    dW2 = np.dot(X2.T, dscores) / N
-    dW2 += reg * W2
-    db2 = np.mean(dscores, axis=0)
-
-    tmp = np.matmul(dscores, W2.T) * (X2 > 0)
     
-    dW1 = W1
-    dW1 = np.dot(X.T, tmp) / N
+    # loss = np.sum(cross_entropy) / N
+    dsum_cross_entropy = 1.0 / N
+    
+    # sum_cross_entropy = np.sum(cross_entropy)  
+    dscores = softmax
+    dscores[range(N), y] -= 1
+    dscores *= dsum_cross_entropy
+
+    # scores = np.dot(X2_relu, W2) + b2
+    dW2 = np.dot(X2_relu.T, dscores)
+    dW2 += reg * W2
+    db2 = np.sum(dscores, axis=0)
+    dX2_relu = np.dot(dscores, W2.T)
+
+    # X2_relu = np.maximum(0, X2)
+    dX2 = dX2_relu * (X2 > 0)
+    
+    # X2 = np.dot(X, W1) + b1
+    dW1 = np.dot(X.T, dX2)
     dW1 += reg * W1
-    db1 = np.mean(tmp, axis=0)
+    db1 = np.sum(dX2, axis=0)
     
     grads['W1'] = dW1
     grads['b1'] = db1
