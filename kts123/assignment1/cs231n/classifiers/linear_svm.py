@@ -71,7 +71,6 @@ def svm_loss_vectorized(W, X, y, reg):
 
   Inputs and outputs are the same as svm_loss_naive.
   """
-  loss = 0.0
   dW = np.zeros(W.shape) # initialize the gradient as zero
 
   #############################################################################
@@ -81,24 +80,33 @@ def svm_loss_vectorized(W, X, y, reg):
   #############################################################################
   num_classes = W.shape[1]
   num_train = X.shape[0]
-  loss = 0.0
   
-  """
+  '''
   for c in xrange(num_classes):
     X_yc  = X[np.flatnonzero(y == c)]
     score_yc = np.transpose(X_yc.dot(W)) # score.shape = (10, ?)    
     margin = np.maximum(0, score_yc - score_yc[c] + 1)
     margin_sum = np.sum(margin) - margin.shape[1]
     loss += margin_sum
-  """  
-  score = X.dot(W)                              # score.shape = (500, 10)    
-  score_y = score[range(score.shape[0]), y]     # score_y .shape = (500,)
-  score   = np.transpose(score)
-  score_y = np.transpose(score_y)   
-  margin = np.maximum(0, score - score_y + 1)   # margin = (500, 10)
-  margin_sum = np.sum(margin) - margin.shape[1] 
-  loss += margin_sum
-  loss /= num_train 
+  '''  
+  '''
+  score   = X.dot(W)                            # score.shape   = (500, 10)    
+  score_y = score[range(score.shape[0]), y]     # score_y.shape = (500,   )
+  score   = np.transpose(score)                 # score.shape   = (10, 500)
+  score_y = np.transpose(score_y)               # score_y.shape = (1,  500)
+  margin  = np.maximum(0, score - score_y + 1)  # margin.shape  = (10, 500)
+  margin_sum = np.sum(margin) - margin.shape[1]
+  '''
+  
+  score   = X.dot(W)                              # score.shape   = (500, 10)    
+  
+  score_y = score[range(num_train), y]            # score_y.shape = (500,   )
+  score_y = score_y.reshape(num_train, 1)         # score_y.shape = (500, 1 )
+ 
+  margin  = np.maximum(0, score - score_y + 1)    # margin.shape  = (500, 10)
+  margin[range(num_train), y] = 0;
+ 
+  loss = np.sum(margin)/num_train + 0.5 * reg * np.sum(W * W)
 
   #############################################################################
   #                             END OF YOUR CODE                              #
@@ -114,16 +122,15 @@ def svm_loss_vectorized(W, X, y, reg):
   # to reuse some of the intermediate values that you used to compute the     #
   # loss.                                                                     #
   #############################################################################
-  score = X.dot(W)                              # score.shape = (500, 10)    
-  score_y = score[range(score.shape[0]), y]     # score_y .shape = (500,)
-  score   = np.transpose(score)
-  score_y = np.transpose(score_y)   
-  margin = np.maximum(0, score - score_y + 1)   # margin = (500, 10)
-  margin_cnt = np.sum(margin > 0) - num_train
-  print 'margin_cnt', margin_cnt
+  positive_flag = (margin > 0)*1.0                   # positive_flag.shape = (500,  10)                 
+  positive_cnt = np.sum(positive_flag, axis = 1)     # positive_cnt.shape  = (500,    )   
+  cnts         = np.zeros(positive_flag.shape)       # consts.shape        = (500,  10)
+  cnts[range(num_train), y] = positive_cnt      
+  dW1 = -1* X.transpose().dot(cnts)                  # dW1.shape           = (3073, 10)
+  dW2 = X.transpose().dot(positive_flag)             # dW2.shape           = (3073, 10)
+  dW = (dW1 + dW2)/num_train + reg*W                 # dW.shape            = (3073, 10)
 
-  # to be continue...
-  
+ 
     
   
   #############################################################################

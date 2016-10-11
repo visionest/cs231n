@@ -258,6 +258,8 @@ class FullyConnectedNet(object):
         kb = 'b' + `i`
 
         out, cache[i] = affine_relu_forward(out, params[kw], params[kb])
+        if self.use_dropout:
+            out, cache['dropout' + `i`] = dropout_forward(out, self.dropout_param)
 
     kw = 'W' + `num_layers`
     kb = 'b' + `num_layers`
@@ -296,6 +298,9 @@ class FullyConnectedNet(object):
     for i in reversed(xrange(1, num_layers)):
         kw = 'W' + `i`
         kb = 'b' + `i`
+        
+        if self.use_dropout:
+            dout = dropout_backward(dout, cache['dropout' + `i`])
         dout, grads[kw], grads[kb] = affine_relu_backward(dout, cache[i])
         grads[kw] += reg * params[kw]
 

@@ -33,16 +33,16 @@ def softmax_loss_naive(W, X, y, reg):
   #############################################################################
   
   for i in xrange(num_train):
-    scores = X[i].dot(W)
+    scores = X[i].dot(W)                                       # scores : (C,)
     scores -= np.amax(scores)
     
     scores_exp = np.exp(scores)
-    softmax = scores_exp / np.sum(scores_exp)
+    softmax = scores_exp / np.sum(scores_exp)                  # softmax : scalar
     
-    loss += -np.log(softmax[y[i]] + 10**-10)
+    loss += -np.log(softmax[y[i]] + 10**-10)                   # loss : scalar
     
     for c in xrange(num_class):
-      dW[:, c] += X[i] * (softmax[c] - (c == y[i]))
+      dW[:, c] += X[i] * (softmax[c] - (c == y[i]))            # dW[:, c] : (D,)
   
   loss /= num_train
   loss += 0.5 * reg * np.sum(W * W)
@@ -75,17 +75,17 @@ def softmax_loss_vectorized(W, X, y, reg):
   # regularization!                                                           #
   #############################################################################
   
-  scores = np.dot(X, W)
+  scores = np.dot(X, W)                                               # scores : (N, C)
   scores -= np.amax(scores, axis=1, keepdims=True)
   
   scores_exp = np.exp(scores)
-  softmax = scores_exp / np.sum(scores_exp, axis=1, keepdims=True)
+  softmax = scores_exp / np.sum(scores_exp, axis=1, keepdims=True)    # softmax : (N, C)
   
-  cross_entropy = -np.log(softmax[range(num_train), y] + 10**-10)
+  cross_entropy = -np.log(softmax[range(num_train), y] + 10**-10)     # cross_entropy : (N,)
   loss = np.mean(cross_entropy)
   loss += 0.5 * reg * np.sum(W * W)
 
-  dscores = softmax
+  dscores = softmax                                                   # dscores : (N, C)
   dscores[range(num_train), y] -= 1
   dscores /= num_train
   
