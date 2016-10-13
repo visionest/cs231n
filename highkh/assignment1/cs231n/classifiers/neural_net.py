@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -74,13 +75,18 @@ class TwoLayerNet(object):
     # Store the result in the scores variable, which should be an array of      #
     # shape (N, C).                                                             #
     #############################################################################
-    pass
+    
+    fc1 = np.matmul(X, W1) + b1    # (N, H)
+    ReLU2 = np.maximum(0, fc1)
+    fc3 = np.matmul(ReLU2, W2) + b2    # (N, C)
+        
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
     
     # If the targets are not given then jump out, we're done
     if y is None:
+      scores = fc3   #####
       return scores
 
     # Compute the loss
@@ -92,7 +98,19 @@ class TwoLayerNet(object):
     # classifier loss. So that your results match ours, multiply the            #
     # regularization loss by 0.5                                                #
     #############################################################################
-    pass
+ 
+    #fc3 -= np.nanmax(fc3)    ## Overflow 방지용 : 가급적 넣어주는게 좋음
+    
+    nume_exp = np.exp(fc3)
+    softmax4 = nume_exp / np.sum(nume_exp, axis=1, keepdims=True)
+    ce = -np.log(softmax4[np.arange(N), y])
+    
+    #eps = 1e-10
+    #softmax4 = nume_exp / np.sum(nume_exp + eps, axis=1, keepdims=True)    ## 0으로 나누는 것 방지
+    #ce = -np.log(softmax4[np.arange(N), y] + eps)    ## 0으로 나누는 것 방지
+    
+    loss = np.mean(ce) + 0.5*reg*np.sum(W1*W1) + 0.5*reg*np.sum(W2*W2)
+       
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -104,7 +122,24 @@ class TwoLayerNet(object):
     # and biases. Store the results in the grads dictionary. For example,       #
     # grads['W1'] should store the gradient on W1, and be a matrix of same size #
     #############################################################################
-    pass
+    
+    diff_fc3 = softmax4  # (N, C)  ## 처음에 fc3을 가져왔음;;
+    diff_fc3[np.arange(N), y] += -1
+    diff_fc3 /= N
+    
+    grads['W2'] = np.matmul(ReLU2.T, diff_fc3)   # (H, C)
+    grads['W2'] += reg*W2
+    grads['b2'] = np.sum(diff_fc3, axis=0)    # (C,)
+    
+    diff_fc1 = np.matmul(diff_fc3, W2.T)*(ReLU2 > 0)   # (N, H)
+    ## 처음에 쓴 것 diff_fc1 = np.maximum(0, ReLU2)
+    ## 다음에 쓴것 diff_fc1 *= np.maximum(0, ReLU2) 
+    ##                 >>> diff_fc1에서 positive만 가져와야하는데 이런식으로 쓰면 ReLU2의 양수값을 곱하게 되므로 틀림!!
+    
+    grads['W1'] = np.matmul(X.T, diff_fc1)    # (D, H)
+    grads['W1'] += reg*W1
+    grads['b1'] = np.sum(diff_fc1, axis=0)
+        
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -148,7 +183,11 @@ class TwoLayerNet(object):
       # TODO: Create a random minibatch of training data and labels, storing  #
       # them in X_batch and y_batch respectively.                             #
       #########################################################################
-      pass
+      
+      sample_indx = np.random.choice(np.arange(num_train), batch_size)
+      X_batch = X[sample_indx]
+      y_batch = y[sample_indx]
+    
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -163,7 +202,12 @@ class TwoLayerNet(object):
       # using stochastic gradient descent. You'll need to use the gradients   #
       # stored in the grads dictionary defined above.                         #
       #########################################################################
-      pass
+      
+      self.params['W1'] += -learning_rate*grads['W1']
+      self.params['b1'] += -learning_rate*grads['b1']
+      self.params['W2'] += -learning_rate*grads['W2']
+      self.params['b2'] += -learning_rate*grads['b2']
+        
       #########################################################################
       #                             END OF YOUR CODE                          #
       #########################################################################
@@ -208,7 +252,12 @@ class TwoLayerNet(object):
     ###########################################################################
     # TODO: Implement this function; it should be VERY simple!                #
     ###########################################################################
-    pass
+    
+    fc1 = np.matmul(X, self.params['W1']) + self.params['b1']
+    ReLU2 = np.maximum(0, fc1)
+    fc3 = np.matmul(ReLU2, self.params['W2']) + self.params['b2']
+    y_pred = np.argmax(fc3, axis=1)
+    
     ###########################################################################
     #                              END OF YOUR CODE                           #
     ###########################################################################
