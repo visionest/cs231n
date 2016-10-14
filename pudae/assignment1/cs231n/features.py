@@ -94,27 +94,58 @@ def hog_feature(im):
   orientations = 9 # number of gradient bins
   cx, cy = (8, 8) # pixels per cell
 
+  ####################################################################################
+  # gradient 계산을 위한 변수 초기화
+  ####################################################################################
   gx = np.zeros(image.shape)
   gy = np.zeros(image.shape)
+  
+  ####################################################################################
+  # x, y 방향 gradient 계산
+  ####################################################################################
   gx[:, :-1] = np.diff(image, n=1, axis=1) # compute gradient on x-direction
   gy[:-1, :] = np.diff(image, n=1, axis=0) # compute gradient on y-direction
   grad_mag = np.sqrt(gx ** 2 + gy ** 2) # gradient magnitude
   grad_ori = np.arctan2(gy, (gx + 1e-15)) * (180 / np.pi) + 90 # gradient orientation
 
+  ####################################################################################
+  # cell 갯수 계산
+  ####################################################################################
   n_cellsx = int(np.floor(sx / cx))  # number of cells in x
   n_cellsy = int(np.floor(sy / cy))  # number of cells in y
+
   # compute orientations integral images
+  ####################################################################################
+  # cell 단위로 histogram을 생성함
+  ####################################################################################
   orientation_histogram = np.zeros((n_cellsx, n_cellsy, orientations))
   for i in range(orientations):
     # create new integral image for this orientation
     # isolate orientations in this range
+    ####################################################################################
+    # orientation을 20도 단위로 구분함 (0, 20, 40, 60, 80, 100, 120, 140, 160, 180)
+    # ex> i==0일 때는 0~20도 구간의 orientation을 구해냄. 0~20 구간을 제외하고 0으로..
+    ####################################################################################
     temp_ori = np.where(grad_ori < 180 / orientations * (i + 1),
                         grad_ori, 0)
     temp_ori = np.where(grad_ori >= 180 / orientations * i,
                         temp_ori, 0)
     # select magnitudes for those orientations
+    ####################################################################################
+    # 해당 구간의 magnitude를 구함
+    ####################################################################################
     cond2 = temp_ori > 0
     temp_mag = np.where(cond2, grad_mag, 0)
+    ####################################################################################
+    # [cx/2::cx, cy/2::cy]
+    #  - cx/2에서 시작하여 cx 단위로 인덱싱
+    # ex> l = range(10)
+    #     l[::4] => [0, 4, 8]
+    #     l[1::4] => [1, 5, 9]
+    #
+    # uniform_filter
+    #  - 평균 값을 취하는 필터 (?)
+    ####################################################################################
     orientation_histogram[:,:,i] = uniform_filter(temp_mag, size=(cx, cy))[cx/2::cx, cy/2::cy].T
   
   return orientation_histogram.ravel()
