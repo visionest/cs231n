@@ -83,12 +83,12 @@ def svm_loss_vectorized(W, X, y, reg):
   num_train = X.shape[0]
       
   scores = X.dot(W)
-  print 'scr', scores , scores.shape[0], scores.shape[1]
-  print 'y' , y , y.shape[0]
+  #print 'scr', scores , scores.shape[0], scores.shape[1]
+  #print 'y' , y , y.shape[0]
   correct_class_score = scores[np.arange(num_train), y]
-  print 'ccs', correct_class_score , correct_class_score.shape[0]
+  #print 'ccs', correct_class_score , correct_class_score.shape[0]
   margins = np.maximum(0, scores - correct_class_score[:, np.newaxis] + 1) # delta = 1 # [:, np.newaxis] = like transpose
-  print 'marg', margins , margins.shape[0] , margins.shape[1]
+  #print 'marg', margins , margins.shape[0] , margins.shape[1]
   # incorrect만 loss증가에 영향. 따라서 correct는 0
   margins[np.arange(num_train), y] = 0
   loss = np.sum(margins)
