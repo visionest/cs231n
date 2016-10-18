@@ -4,52 +4,63 @@ import matplotlib.pyplot as plt
 
 class TwoLayerNet(object):
   """
-  A two-layer fully-connected neural network. The net has an input dimension of
-  N, a hidden layer dimension of H, and performs classification over C classes.
-  We train the network with a softmax loss function and L2 regularization on the
-  weight matrices. The network uses a ReLU nonlinearity after the first fully
-  connected layer.
+  A two-layer fully-connected neural network. 
+  
+      N: The net has an input dimension of N, 
+      H: a hidden layer dimension of H, 
+      C: and performs classification over C classes.
+  
+  We train the network with a 
+      - softmax loss function and 
+      - L2 regularization 
+  on the weight matrices. 
+  The network uses a ReLU nonlinearity after the first fully connected layer.
 
   In other words, the network has the following architecture:
 
   input - fully connected layer - ReLU - fully connected layer - softmax
-
+  
+  X =>  W1*X = > ReLU(W1*X) => W2*ReLU(W1*X) => softmax(W2*ReLU(W1*X))
   The outputs of the second fully-connected layer are the scores for each class.
   """
 
   def __init__(self, input_size, hidden_size, output_size, std=1e-4):
     """
-    Initialize the model. Weights are initialized to small random values and
-    biases are initialized to zero. Weights and biases are stored in the
-    variable self.params, which is a dictionary with the following keys:
+    Initialize the model. 
+    Weights are initialized to small random values and
+    biases are initialized to zero. 
+    Weights and biases are stored in the variable self.params, 
+       which is a dictionary with the following keys:
 
-    W1: First layer weights; has shape (D, H)
-    b1: First layer biases; has shape (H,)
-    W2: Second layer weights; has shape (H, C)
-    b2: Second layer biases; has shape (C,)
+        W1: First layer weights;  has shape (D, H)
+        b1: First layer biases;   has shape (H,)
+        W2: Second layer weights; has shape (H, C)
+        b2: Second layer biases;  has shape (C,)
 
     Inputs:
-    - input_size: The dimension D of the input data.
-    - hidden_size: The number of neurons H in the hidden layer.
-    - output_size: The number of classes C.
+    - input_size  [D]: The dimension D of the input data.
+    - hidden_size [H]: The number of neurons H in the hidden layer.
+    - output_size [C]: The number of classes C.
     """
+    
     self.params = {}
-    self.params['W1'] = std * np.random.randn(input_size, hidden_size)
-    self.params['b1'] = np.zeros(hidden_size)
-    self.params['W2'] = std * np.random.randn(hidden_size, output_size)
-    self.params['b2'] = np.zeros(output_size)
+    self.params['W1'] = std * np.random.randn(input_size, hidden_size)  # [D, H]
+    self.params['b1'] = np.zeros(hidden_size)                           # [H,] 
+    self.params['W2'] = std * np.random.randn(hidden_size, output_size) # [H, C]
+    self.params['b2'] = np.zeros(output_size)                           # [C,]
 
   def loss(self, X, y=None, reg=0.0):
     """
-    Compute the loss and gradients for a two layer fully connected neural
-    network.
+    Compute the loss and gradients for a 
+        two layer fully connected neural network.
 
     Inputs:
-    - X: Input data of shape (N, D). Each X[i] is a training sample.
-    - y: Vector of training labels. y[i] is the label for X[i], and each y[i] is
-      an integer in the range 0 <= y[i] < C. This parameter is optional; if it
-      is not passed then we only return scores, and if it is passed then we
-      instead return the loss and gradients.
+    - X [N,D]: Input data of shape (N, D). Each X[i] is a training sample.
+    - y [N,] : Vector of training labels. y[i] is the label for X[i], and each y[i] is
+      an integer in the range 0 <= y[i] < C. 
+      This parameter is optional; 
+          if it is not passed then we only return scores, 
+          and if it is passed then we instead return the loss and gradients.
     - reg: Regularization strength.
 
     Returns:
@@ -80,6 +91,9 @@ class TwoLayerNet(object):
     #############################################################################
     
     # If the targets are not given then jump out, we're done
+    LeRU = lambda x: np.maximum(x, 0)
+    hidden = LeRU(X.dot(W1)+ b1) # W1[D, H], X[N, D], hiddn[N, H], b1[H,]
+    scores = hidden.dot(W2) + b2 # W2[H,C], b2[C,]
     if y is None:
       return scores
 
@@ -92,7 +106,17 @@ class TwoLayerNet(object):
     # classifier loss. So that your results match ours, multiply the            #
     # regularization loss by 0.5                                                #
     #############################################################################
-    pass
+    num_train = X.shape[0]
+    scores  -= np.max(scores)
+    exp_scores = np.exp(scores) 
+    softmaxs   = np.exp(scores) / np.sum(exp_scores, axis = 1)[:,np.newaxis]  # softmaxs.shape = (N,C)
+    correct_class_softmax = softmaxs[xrange(num_train), y]
+    loss = np.sum(-1*np.log(correct_class_softmax))
+    loss /= num_train
+    
+    loss_regular = np.sum(np.square(W1)) + np.sum(np.square(W2))
+    loss += 0.5*reg*loss_regular
+    
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
