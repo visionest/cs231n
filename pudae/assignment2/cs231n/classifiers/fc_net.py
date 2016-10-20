@@ -3,7 +3,6 @@ import numpy as np
 from cs231n.layers import *
 from cs231n.layer_utils import *
 
-
 class TwoLayerNet(object):
   """
   A two-layer fully-connected neural network with ReLU nonlinearity and
@@ -185,10 +184,10 @@ class FullyConnectedNet(object):
     dims = [input_dim] + hidden_dims + [num_classes]
 
     for i, d in enumerate(zip(dims, dims[1:])):
-        kw = 'W' + `i + 1`
-        kb = 'b' + `i + 1`
+        kw = 'W{}'.format(i + 1)
+        kb = 'b{}'.format(i + 1)
         self.params[kw] = np.random.normal(scale=weight_scale, size=d)
-        self.params[kb] = np.random.normal(scale=weight_scale, size=d[1])
+        self.params[kb] = np.zeros(d[1])
 
     ############################################################################
     #                             END OF YOUR CODE                             #
@@ -254,15 +253,15 @@ class FullyConnectedNet(object):
     out = X
     cache = {}
     for i in xrange(1, num_layers):
-        kw = 'W' + `i`
-        kb = 'b' + `i`
+        kw = 'W{}'.format(i)
+        kb = 'b{}'.format(i)
 
         out, cache[i] = affine_relu_forward(out, params[kw], params[kb])
         if self.use_dropout:
-            out, cache['dropout' + `i`] = dropout_forward(out, self.dropout_param)
+            out, cache['dropout{}'.format(i)] = dropout_forward(out, self.dropout_param)
 
-    kw = 'W' + `num_layers`
-    kb = 'b' + `num_layers`
+    kw = 'W{}'.format(num_layers)
+    kb = 'b{}'.format(num_layers)
     scores, cache[num_layers] = affine_forward(out, params[kw], params[kb])
     ############################################################################
     #                             END OF YOUR CODE                             #
@@ -288,19 +287,21 @@ class FullyConnectedNet(object):
     ############################################################################
     loss, dscores = softmax_loss(scores, y)
     Ws = [v for k, v in params.iteritems() if 'W' in k]
-    loss += 0.5 * reg * reduce(lambda acc, w: acc + np.sum(w * w), [0] + Ws)
+    loss += 0.5 * reg * sum(map(lambda w: np.sum(w * w), Ws))
 
-    kw = 'W' + `num_layers`
-    kb = 'b' + `num_layers`
+    kw = 'W{}'.format(num_layers)
+    kb = 'b{}'.format(num_layers)
+    
     dout, grads[kw], grads[kb] = affine_backward(dscores, cache[num_layers])
     grads[kw] += reg * params[kw]
 
     for i in reversed(xrange(1, num_layers)):
-        kw = 'W' + `i`
-        kb = 'b' + `i`
+        kw = 'W{}'.format(i)
+        kb = 'b{}'.format(i)
         
         if self.use_dropout:
-            dout = dropout_backward(dout, cache['dropout' + `i`])
+            dout = dropout_backward(dout, cache['dropout{}'.format(i)])
+            
         dout, grads[kw], grads[kb] = affine_relu_backward(dout, cache[i])
         grads[kw] += reg * params[kw]
 
