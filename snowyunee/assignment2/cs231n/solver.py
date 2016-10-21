@@ -33,7 +33,7 @@ class Solver(object):
     'X_val': # validation data
     'X_train': # validation labels
   }
-  model = MyAwesomeModel(hidden_size=100, reg=10)
+  model = MyAwesomeModel(hidden_size=100, reg=10)S
   solver = Solver(model, data,
                   update_rule='sgd',
                   optim_config={
