@@ -24,7 +24,8 @@ def affine_forward(x, w, b):
   # TODO: Implement the affine forward pass. Store the result in out. You     #
   # will need to reshape the input into rows.                                 #
   #############################################################################
-  out = np.dot(x.reshape((x.shape[0], -1)), w)
+  N = x.shape[0]
+  out = np.dot(x.reshape((N, -1)), w)
   out += b
   #############################################################################
   #                             END OF YOUR CODE                              #
@@ -53,9 +54,10 @@ def affine_backward(dout, cache):
   #############################################################################
   # TODO: Implement the affine backward pass.                                 #
   #############################################################################
+  N = x.shape[0]
   # out = np.dot(x, w) + b
   dx = np.dot(dout, w.T).reshape(x.shape)
-  dw = np.dot(x.reshape((x.shape[0], -1)).T, dout)
+  dw = np.dot(x.reshape((N, -1)).T, dout)
   db = np.sum(dout, axis=0)
   #############################################################################
   #                             END OF YOUR CODE                              #
@@ -169,15 +171,22 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     # the momentum variable to update the running mean and running variance,    #
     # storing your result in the running_mean and running_var variables.        #
     #############################################################################
-    mean = np.mean(x, axis=0)
-    var = np.mean(np.square(x - mean), axis=0)
-    x_norm = (x - mean) / np.sqrt(var + eps)
+    
+    # numerator
+    mean = np.mean(x, axis = 0)
+    dev = x - mean
+    
+    # denominator
+    var = np.mean(np.square(dev), axis=0)  
+    std_dev = np.sqrt(var + eps)
+    
+    x_norm = dev * std_dev ** -1
     out = gamma * x_norm + beta
     
     running_mean = momentum * running_mean + (1 - momentum) * mean
     running_var = momentum * running_var + (1 - momentum) * var
     
-    cache = (x, mean, var, x_norm, gamma, beta)
+    cache = (x, gamma, beta, x_norm, mean, dev, std_dev)
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -225,67 +234,45 @@ def batchnorm_backward(dout, cache):
   # TODO: Implement the backward pass for batch normalization. Store the      #
   # results in the dx, dgamma, and dbeta variables.                           #
   #############################################################################
-  x, mean, var, x_norm, gamma, beta = cache
+  
+  N, D = dout.shape
+    
+  x, gamma, beta, x_norm, mean, dev, std_dev = cache
 
-  N = x.shape[0]
-  D = x.shape[1]
-
-  dev = x - mean                                          # (N, D)
-  std_dev = np.sqrt(var)                                  # (D,)
-
-  # out = gamma * x_norm + beta
+  # out = gamma * x_norm + beta                             
   dgamma = np.sum(dout * x_norm, axis=0)
   dbeta = np.sum(dout, axis=0)
-  dx_norm = dout * gamma                                  # (N, D)
+  dx_norm = dout * gamma
 
-  ###############################################################################
-  # Case i == j
-  ###############################################################################
-  # x_norm = (x - mean) / std_dev
-  #        = dev / std_dev
-  ddev = dx_norm / std_dev                                # (N, D)
-  dstd_dev = np.sum(dx_norm * -dev, axis=0) / var         # (N, D)
-    
-  ###############################################################################
-  # 1. numerator : dev (= (x - mean))
-  # dev = x - mean
-  dx = ddev * 1.0                                         # (N, D)
-  dx += -1.0 * np.mean(ddev, axis=0)                      # (N, D)
-
-  ###############################################################################
-  # 2. denominator : std_dev
-  # std_dev = np.sqrt(var)
-  dvar = dstd_dev / 2.0 / std_dev                         # (N, D)
-
-  # var = sum(square(dev), axis=0) / N
-  dvar /= N
-  
-  # square(dev) = dev ^ 2
-  ddev = dvar * 2.0 * dev                                 # (N, D)
-    
-  # dev = x - mean
-  dx += ddev * 1.0
-  dx += -1.0 * np.mean(ddev, axis=0)
- 
-  ###############################################################################
-  # Case i == j
-  ###############################################################################
-  # x_norm = (x - mean) / std_dev
-    
-  """
-  
   # x_norm = dev / std_dev
-  dstd_dev = dx_norm * -dev / var # var = std_dev ^ 2
-  dvar = dstd_dev / 2.0 / std_dev
-  # var = np.sum(np.square(dev) / N, axis=0)
-  dsquare_dev = dvar / N * ones_like(dev)
+  ddev = dx_norm / std_dev
+  dstd_dev = np.sum(dx_norm * -dev * np.square(std_dev) ** -1, axis=0)
+  ############################################################################
+  # Question? Why this code does not work correctly?
+  # dstd_dev = np.sum(dx_norm * -dev / var, axis=0)
+    
+  # 1. numerator
   # dev = x - mean
-  """
+  dx = ddev
+  dmean = np.sum(ddev * -1, axis = 0)
+  dx += dmean / N
+    
+  # 2. denominator
+  # std_dev = sqrt(var)
+  dvar = dstd_dev * 0.5 * std_dev ** -1
+
+  # var = square(dev) / N
+  dvar = dvar / N
+  ddev = dvar * 2.0 * dev
   
+  # dev = x - mean
+  dx += ddev
+  dmean = np.sum(ddev * -1, axis = 0)
+  dx += dmean / N
+    
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
-
   return dx, dgamma, dbeta
 
 
@@ -311,7 +298,15 @@ def batchnorm_backward_alt(dout, cache):
   # should be able to compute gradients with respect to the inputs in a       #
   # single statement; our implementation fits on a single 80-character line.  #
   #############################################################################
-  pass
+  x, gamma, beta, x_norm, mean, dev, std_dev = cache
+
+  N = dout.shape[0]
+  
+  dbeta = np.sum(dout, axis=0)
+  dgamma = np.sum(dout*x_norm, axis=0)
+  
+  dx = (1. / N) * gamma * std_dev ** -1.
+  dx = dx * (N * dout - np.sum(dout, axis = 0) - dev * std_dev ** -2. * np.sum(dout * dev, axis=0))
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
