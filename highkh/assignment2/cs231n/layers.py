@@ -29,7 +29,7 @@ def affine_forward(x, w, b):
   #dimension = w.shape[0]
   
   #x.reshape(minibatch_size, dimension)
-
+  #out = np.matmul(x.reshape(x.shape[0], np.prod(x.shape[1:])), w) + b
   out = np.matmul(x.reshape(x.shape[0], w.shape[0]), w) + b
   
   #############################################################################
@@ -164,8 +164,10 @@ def batchnorm_forward(x, gamma, beta, bn_param):
   mode = bn_param['mode']
   eps = bn_param.get('eps', 1e-5)
   momentum = bn_param.get('momentum', 0.9)
-
+  
+  #print x.shape
   N, D = x.shape
+
   running_mean = bn_param.get('running_mean', np.zeros(D, dtype=x.dtype))
   running_var = bn_param.get('running_var', np.zeros(D, dtype=x.dtype))
 
@@ -184,7 +186,62 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     # the momentum variable to update the running mean and running variance,    #
     # storing your result in the running_mean and running_var variables.        #
     #############################################################################
-    pass
+    
+    cache = {}
+    
+    # batch mean, variance
+    x_mean = np.mean(x, axis=0)
+    x_var = np.var(x, axis=0)
+    
+    # normalization
+    x_hat = (x - x_mean) / np.sqrt(x_var + eps)
+    
+    # re-transformation
+    out = gamma*x_hat + beta
+    
+    # running mean, variance
+    running_mean = momentum*running_mean + (1 - momentum)*x_mean
+    running_var = momentum*running_var + (1 - momentum)*x_var
+    
+    cache = (x, x_mean, x_var, x_hat, gamma, eps)
+    
+    '''
+    cache['x'] = x
+    cache['x_hat'] = x_hat
+    cache['gamma'] = gamma
+    cache['x_mean'] = x_mean
+    cache['x_var'] = x_var
+    cache['eps'] = eps
+        
+    ## batch 평균 : x_mean
+    x_mean = np.mean(x, axis=0)
+    
+    ## 평균 0으로 변환
+    x_zero_shift = x - x_mean
+    x_zero_shift_2 = np.square(x_zero_shift)
+    
+    ## batch 분산
+    x_var = np.mean(x_zero_shift_2, axis=0)
+        
+    ## batch 표준편차
+    x_std = np.sqrt(x_var + eps)
+    x_std_inv = 1. / (x_std)
+    
+    ## 표준편차 1로 변환
+    x_normal = x_zero_shift*x_std_inv
+    
+    ## gamma scale
+    x_rescale = gamma*x_normal
+    
+    ## beta translation
+    out = x_rescale + beta
+    
+    ## 평균, 표준편차에 대한 이동평균
+    running_mean = momentum*running_mean + (1. - momentum)*x_mean
+    running_var = momentum*running_var + (1. - momentum)*x_var
+    
+    cache = (x_mean, x_zero_shift, x_zero_shift_2, x_var, x_std, x_std_inv, x_normal, x_rescale, gamma, beta, x, bn_param)
+    '''
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -195,7 +252,9 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     # and shift the normalized data using gamma and beta. Store the result in   #
     # the out variable.                                                         #
     #############################################################################
-    pass
+        
+    out = gamma*((x - running_mean) / np.sqrt(running_var + eps)) + beta
+    
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -231,7 +290,51 @@ def batchnorm_backward(dout, cache):
   # TODO: Implement the backward pass for batch normalization. Store the      #
   # results in the dx, dgamma, and dbeta variables.                           #
   #############################################################################
-  pass
+  
+  x, x_mean, x_var, x_hat, gamma, eps = cache
+  N = float(dout.shape[0])  
+
+  ## out = gamma*x_hat + beta
+  dbeta = np.sum(dout, axis=0)
+  dgamma = np.sum(dout*x_hat, axis=0)
+  dx_hat = dout*gamma
+  
+  dx_var = np.sum((-0.5)*dx_hat*(x - x_mean)*(x_var + eps)**(-1.5), axis=0)
+  dx_mean = np.sum(-1*dx_hat / np.sqrt(x_var + eps), axis=0) + dx_var*np.sum(-2*(x - x_mean)) / N
+  
+  dx = dx_hat/np.sqrt(x_var + eps) + dx_var * 2.0*(x - x_mean) / N + dx_mean / N  
+  '''
+  x_mean, x_zero_shift, x_zero_shift_2, x_var, x_std, x_std_inv, x_normal, x_rescale, gamma, beta, x, bn_param = cache
+    
+  N, D = dout.shape
+  eps = bn_param.get('eps', 1e-5)
+  
+  ## dout = gamma*x_normal + beta
+  dbeta = np.sum(dout, axis=0)
+    
+  dgamma = np.sum(dout*x_normal, axis=0)
+  dx_normal = dout*gamma
+
+  
+  dx_std_inv = np.sum(dx_normal*x_zero_shift, axis=0)
+  dx_zero_shift = dx_normal*x_std_inv
+
+  dx_std = -1. /(x_std**2) * dx_std_inv
+
+  dx_var = 0.5 * 1. /np.sqrt(x_var + eps)*dx_std
+
+  dsq = 1. /N * np.ones((N,D))*dx_var
+
+  dx_scale = 2*x_zero_shift*dsq
+
+  dx1 = (dx_zero_shift + dx_scale)
+  dx_mean = -1*np.sum(dx_zero_shift + dx_scale, axis=0)
+
+  dx2 = 1. /N*np.ones((N,D)) * dx_mean
+
+  dx = dx1 + dx2
+  '''  
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -261,7 +364,18 @@ def batchnorm_backward_alt(dout, cache):
   # should be able to compute gradients with respect to the inputs in a       #
   # single statement; our implementation fits on a single 80-character line.  #
   #############################################################################
-  pass
+  x, x_mean, x_var, x_hat, gamma, eps = cache
+  N = float(dout.shape[0])  
+  #x_mean, x_zero_shift, x_zero_shift_2, x_var, x_std, x_std_inv, x_normal, x_rescale, gamma, beta, x, bn_param = cache
+  #N, D = dout.shape
+  #eps = bn_param.get('eps', 1e-5)
+  
+  dbeta = np.sum(dout, axis=0)
+  dgamma = np.sum(dout*x_hat, axis=0)
+  
+  dx = (1/N)*gamma*(x_var + eps)**(-0.5)*(N*dout - np.sum(dout, axis=0)
+    - (x - x_mean)*(x_var + eps)**(-1.0)*np.sum(dout*(x - x_mean), axis=0))
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################

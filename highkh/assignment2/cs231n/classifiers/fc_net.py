@@ -3,6 +3,25 @@ import numpy as np
 from cs231n.layers import *
 from cs231n.layer_utils import *
 
+############################################################################
+## for BatchNormalization                                                 ##
+############################################################################
+def affine_bn_relu_forward(x, w, b, gamma, beta, bn_param):
+  fc, fc_cache = affine_forward(x, w, b)
+  bn, bn_cache = batchnorm_forward(fc, gamma, beta, bn_param)
+  out, relu_cache = relu_forward(bn)
+  cache = (fc_cache, bn_cache, relu_cache)
+  return out, cache
+
+def affine_bn_relu_backward(dout, cache):
+  fc_cache, bn_cache, relu_cache = cache
+  drelu = relu_backward(dout, relu_cache)
+  dbn, dgamma, dbeta = batchnorm_backward(drelu, bn_cache)
+  dx, dw, db = affine_backward(dbn, fc_cache)
+
+  return dx, dw, db, dgamma, dbeta
+############################################################################
+############################################################################
 
 class TwoLayerNet(object):
   """
@@ -210,11 +229,15 @@ class FullyConnectedNet(object):
     self.params['W2'] = weight_scale*np.random.randn(list_dimension[1], list_dimension[2])
     self.params['b2'] = np.zeros(list_dimension[2])
     '''
-    ## Multi(>3) layer case
+    ## Multi(>2) layer case
     for i in xrange(self.num_layers):
         self.params['b%d' % (i+1)] = np.zeros(list_dimension[i+1])
-        self.params['W%d' % (i+1)] = weight_scale*np.random.randn(list_dimension[i],
-                                                                list_dimension[i+1])
+        #self.params['W%d' % (i+1)] = np.random.normal(scale=weight_scale, size=(list_dimension[i], list_dimension[i+1]))
+        self.params['W%d' % (i+1)] = weight_scale*np.random.randn(list_dimension[i], list_dimension[i+1])
+        
+        if use_batchnorm and i != (self.num_layers - 1):
+            self.params['gamma%d' % (i+1)] = np.ones(list_dimension[i+1])
+            self.params['beta%d' % (i+1)] = np.zeros(list_dimension[i+1])
     
     
     ############################################################################
@@ -275,7 +298,7 @@ class FullyConnectedNet(object):
     # layer, etc.                                                              #
     ############################################################################
     
-    '''
+    ''' 2 layer w/o batchnorm
     ##out, cache = affine_relu_forward(x, w, b)
     layer1, cache1 = affine_relu_forward(X, self.params['W1'], self.params['b1'])
     layer2, cache2 = affine_relu_forward(layer1, self.params['W2'], self.params['b2'])
@@ -284,11 +307,13 @@ class FullyConnectedNet(object):
     bias3 = 'b3'
     scores, cache_scores = affine_forward(layer2, self.params[weight3], self.params[bias3])
     '''
+    
+    ''' multilayer w/o batchnorm
     multilayer = {}
     multilayer[0] = X
     ## >>>>>>>>>>>>>> layer = {0:X}    :    dictionary
     ## >>>>>>>>>>>>>> {3,4,5,5} O      :    set
-    ## >>>>>>>>>>>>>> {[1,2],3} X      :    set does NOT have list element!!
+    ## >>>>>>>>>>>>>> {[1,2],3} X      :    set does NOT have list as element!!
     
     cache_multilayer = {}
 
@@ -297,11 +322,37 @@ class FullyConnectedNet(object):
                                                      self.params['W%d' % i],
                                                      self.params['b%d' % i])
 
+        
+    
     WLast = 'W%d' % self.num_layers
     bLast = 'b%d' % self.num_layers
     scores, cache_scores = affine_forward(multilayer[self.num_layers - 1],
                                           self.params[WLast],
                                           self.params[bLast])
+    '''
+    
+    ## add batch normalization
+    scores = X
+    caches = {}
+    
+    
+    for i in xrange(1, self.num_layers + 1):
+      W_layer = 'W%d' % (i)
+      b_layer = 'b%d' % (i)
+      gamma_layer = 'gamma%d' % (i)
+      beta_layer = 'beta%d' % (i)
+      cache_layer = 'cache%d' % (i)
+        
+      if i ==  self.num_layers:
+        scores, cache = affine_forward(scores, self.params[W_layer], self.params[b_layer])
+      else:
+        if self.use_batchnorm:
+          #scores, self.bn_cache[bn_layer] = affine_bn_relu_forward(scores, self.params[gamma_layer], self.params[beta_layer], self.bn_params[i-1])
+          scores, cache = affine_bn_relu_forward(scores, self.params[W_layer], self.params[b_layer], self.params[gamma_layer], self.params[beta_layer], self.bn_params[i-1])
+        else:
+          scores, cache = affine_relu_forward(scores, self.params[W_layer], self.params[b_layer])
+                
+      caches[cache_layer] = cache
     
     ############################################################################
     #                             END OF YOUR CODE                             #
@@ -326,9 +377,9 @@ class FullyConnectedNet(object):
     # of 0.5 to simplify the expression for the gradient.                      #
     ############################################################################
     
-    dx = {}
+    #dx = {}
     loss, diff_scores = softmax_loss(scores, y)
-    ''' 
+    ''' 2 layer w/o batch norm
     data_loss += 0.5*self.reg*np.sum(self.params['W1']*self.params['W1'])
     data_loss += 0.5*self.reg*np.sum(self.params['W2']*self.params['W2'])
     data_loss += 0.5*self.reg*np.sum(self.params[weight3]*self.params[weight3])
@@ -342,6 +393,8 @@ class FullyConnectedNet(object):
     grads['W2'] += self.reg*self.params['W2']
     grads['W1'] += self.reg*self.params['W1']
     '''
+    
+    ''' multilayer w/o batchnorm
     for i in xrange(1, self.num_layers + 1):
         loss += 0.5*self.reg*np.sum(self.params['W%d' % i]*self.params['W%d' % i])
     
@@ -353,6 +406,28 @@ class FullyConnectedNet(object):
         dx[i], grads['W%d' % i], grads['b%d' % i] = affine_relu_backward(dx[i + 1],
                                                                          cache_multilayer[i])
         grads['W%d' % i] += self.reg * self.params['W%d' % i]
+    '''
+    
+    ### add batch normalization 
+    for i in xrange(self.num_layers, 0, -1):
+        W_layer = 'W%d' % (i)
+        b_layer = 'b%d' % (i)
+        gamma_layer = 'gamma%d' % (i)
+        beta_layer = 'beta%d' % (i)
+        cache_layer = 'cache%d' % (i)
+        
+        loss += 0.5*self.reg*np.sum(self.params[W_layer]**2)
+
+        if i ==  self.num_layers:
+            diff_scores, grads[W_layer], grads[b_layer] = affine_backward(diff_scores, caches[cache_layer])
+        else:
+            if self.use_batchnorm:
+                diff_scores, grads[W_layer], grads[b_layer], grads[gamma_layer], grads[beta_layer] = affine_bn_relu_backward(diff_scores, caches[cache_layer])
+            else:
+                diff_scores, grads[W_layer], grads[b_layer] = affine_relu_backward(diff_scores, caches[cache_layer])
+            
+        
+        grads[W_layer] += self.reg*self.params[W_layer]
     
     ############################################################################
     #                             END OF YOUR CODE                             #
