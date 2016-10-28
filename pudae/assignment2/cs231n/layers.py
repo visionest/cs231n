@@ -180,13 +180,13 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     var = np.mean(np.square(dev), axis=0)  
     std_dev = np.sqrt(var + eps)
     
-    x_norm = dev / std_dev
+    x_norm = dev * std_dev ** -1
     out = gamma * x_norm + beta
     
     running_mean = momentum * running_mean + (1 - momentum) * mean
     running_var = momentum * running_var + (1 - momentum) * var
     
-    cache = (x, gamma, beta, x_norm, dev, std_dev)
+    cache = (x, gamma, beta, x_norm, mean, dev, std_dev)
     #############################################################################
     #                             END OF YOUR CODE                              #
     #############################################################################
@@ -237,7 +237,7 @@ def batchnorm_backward(dout, cache):
   
   N, D = dout.shape
     
-  x, gamma, beta, x_norm, dev, std_dev = cache
+  x, gamma, beta, x_norm, mean, dev, std_dev = cache
 
   # out = gamma * x_norm + beta                             
   dgamma = np.sum(dout * x_norm, axis=0)
@@ -246,7 +246,7 @@ def batchnorm_backward(dout, cache):
 
   # x_norm = dev / std_dev
   ddev = dx_norm / std_dev
-  dstd_dev = np.sum(dx_norm * -dev / np.square(std_dev), axis=0)
+  dstd_dev = np.sum(dx_norm * -dev * np.square(std_dev) ** -1, axis=0)
   ############################################################################
   # Question? Why this code does not work correctly?
   # dstd_dev = np.sum(dx_norm * -dev / var, axis=0)
@@ -259,7 +259,7 @@ def batchnorm_backward(dout, cache):
     
   # 2. denominator
   # std_dev = sqrt(var)
-  dvar = dstd_dev / 2.0 / std_dev
+  dvar = dstd_dev * 0.5 * std_dev ** -1
 
   # var = square(dev) / N
   dvar = dvar / N
@@ -298,8 +298,15 @@ def batchnorm_backward_alt(dout, cache):
   # should be able to compute gradients with respect to the inputs in a       #
   # single statement; our implementation fits on a single 80-character line.  #
   #############################################################################
-  x, mean, var, x_norm, gamma, beta = cache
+  x, gamma, beta, x_norm, mean, dev, std_dev = cache
 
+  N = dout.shape[0]
+  
+  dbeta = np.sum(dout, axis=0)
+  dgamma = np.sum(dout*x_norm, axis=0)
+  
+  dx = (1. / N) * gamma * std_dev ** -1.
+  dx = dx * (N * dout - np.sum(dout, axis = 0) - dev * std_dev ** -2. * np.sum(dout * dev, axis=0))
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
