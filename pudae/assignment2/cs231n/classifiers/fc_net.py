@@ -211,7 +211,7 @@ class FullyConnectedNet(object):
     ############################################################################
 
     dims = [input_dim] + hidden_dims + [num_classes]
-
+    
     for i, d in enumerate(zip(dims, dims[1:])):
         idx = i + 1
                            
@@ -220,11 +220,11 @@ class FullyConnectedNet(object):
         self.params[kw] = np.random.normal(scale=weight_scale, size=d)
         self.params[kb] = np.zeros(d[1])
                            
-        if self.use_batchnorm:
+        if self.use_batchnorm and idx < self.num_layers:
             kbn_gamma = 'bn_gamma{}'.format(idx)
             kbn_beta = 'bn_beta{}'.format(idx)
-            self.params[kbn_gamma] = np.random.randn(d[1])
-            self.params[kbn_beta] = np.random.randn(d[1])
+            self.params[kbn_gamma] = np.ones(d[1])
+            self.params[kbn_beta] = np.zeros(d[1])
 
     ############################################################################
     #                             END OF YOUR CODE                             #
