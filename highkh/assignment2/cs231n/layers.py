@@ -543,7 +543,45 @@ def conv_backward_naive(dout, cache):
   #############################################################################
   # TODO: Implement the convolutional backward pass.                          #
   #############################################################################
-  pass
+  x, w, b, conv_param = cache
+  P = conv_param['pad']
+  x_pad = np.pad(x, ((0,), (0,), (P,), (P,)), 'constant')
+
+  N, C, H, W = x.shape
+  F, C, HH, WW = w.shape
+  N, F, Hh, Hw = dout.shape
+  S = conv_param['stride']
+    
+  dw = np.zeros((F, C, HH, WW))
+  
+  for fprime in range(F):
+    for cprime in range(C):
+      for i in range(HH):
+        for j in range(WW):
+          sub_xpad = x_pad[:, cprime, i:i + Hh * S:S, j:j + Hw * S:S]
+          dw[fprime, cprime, i, j] = np.sum(dout[:, fprime, :, :] * sub_xpad)
+
+  db = np.zeros((F))
+  
+  for fprime in range(F):
+    db[fprime] = np.sum(dout[:, fprime, :, :])
+
+  dx = np.zeros((N, C, H, W))
+  
+  for nprime in range(N):
+    for i in range(H):
+      for j in range(W):
+        for f in range(F):
+          for k in range(Hh):
+            for l in range(Hw):
+              mask1 = np.zeros_like(w[f, :, :, :])
+              mask2 = np.zeros_like(w[f, :, :, :])
+              if (i + P - k * S) < HH and (i + P - k * S) >= 0:
+                mask1[:, i + P - k * S, :] = 1.0
+              if (j + P - l * S) < WW and (j + P - l * S) >= 0:
+                mask2[:, :, j + P - l * S] = 1.0
+                w_masked = np.sum(w[f, :, :, :] * mask1 * mask2, axis=(1, 2))
+                dx[nprime, :, i, j] += dout[nprime, f, k, l] * w_masked
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -569,7 +607,22 @@ def max_pool_forward_naive(x, pool_param):
   #############################################################################
   # TODO: Implement the max pooling forward pass                              #
   #############################################################################
-  pass
+  N, C, H, W = x.shape
+  pool_height, pool_width, stride = (pool_param['pool_height'], pool_param['pool_width'], pool_param['stride'])
+
+  H_prime = 1 + (H - pool_height) / stride
+  W_prime = 1 + (W - pool_width) / stride
+
+  out = np.zeros([N, C, H_prime, W_prime])
+
+  for datapt_idx in xrange(N):
+    for c_idx in xrange(C):
+      for hpos in xrange(H_prime):
+        for wpos in xrange(W_prime):
+          startw = wpos * stride
+          starth = hpos * stride
+          subarray = x[datapt_idx, c_idx, starth:starth+pool_height, startw:startw+pool_width]
+          out[(datapt_idx, c_idx, hpos, wpos)] = subarray.max()
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -592,7 +645,23 @@ def max_pool_backward_naive(dout, cache):
   #############################################################################
   # TODO: Implement the max pooling backward pass                             #
   #############################################################################
-  pass
+  x, pool_param = cache
+  Hp = pool_param['pool_height']
+  Wp = pool_param['pool_width']
+  S = pool_param['stride']
+  N, C, H, W = x.shape
+  H1 = (H - Hp) / S + 1
+  W1 = (W - Wp) / S + 1
+
+  dx = np.zeros((N, C, H, W))
+  for nprime in range(N):
+    for cprime in range(C):
+      for k in range(H1):
+        for l in range(W1):
+          x_pooling = x[nprime, cprime, k * S:k * S + Hp, l * S:l * S + Wp]
+          maxi = np.max(x_pooling)
+          x_mask = x_pooling == maxi
+          dx[nprime, cprime, k * S:k * S + Hp, l * S:l * S + Wp] += dout[nprime, cprime, k, l] * x_mask
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
