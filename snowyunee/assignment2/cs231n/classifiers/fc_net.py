@@ -185,6 +185,7 @@ class FullyConnectedNet(object):
     ############################################################################
     self.weight_scale = weight_scale
     dims = [input_dim] + hidden_dims + [num_classes]
+         
     for i, d  in enumerate(zip(dims, dims[1:])):
       w = np.random.normal(scale=weight_scale, size=(d[0], d[1]))
       b = np.zeros(d[1])
@@ -262,10 +263,15 @@ class FullyConnectedNet(object):
         return f(x, w, b)
     
     for i in range(hidden_dims_len - 1):
-      outs[i], caches[i] = forward(affine_relu_forward, i, outs[i-1])
+      cache = {}
+      outs[i], cache['forward'] = forward(affine_relu_forward, i, outs[i-1])
+      if (self.use_dropout):
+        outs[i], cache['dropout'] = dropout_forward(outs[i], self.dropout_param)
+      caches[i] = cache
 
     i = hidden_dims_len - 1
-    outs[i], caches[i] = forward(affine_forward, i, outs[i-1])
+    caches[i] = {}
+    outs[i], caches[i]['forward'] = forward(affine_forward, i, outs[i-1])
     scores = outs[i]
 
     ############################################################################
@@ -316,7 +322,7 @@ class FullyConnectedNet(object):
     grads['W1'], grads['b1'], grads['W2'], grads['b2'] = dW1, db1, dW2, db2
     """
     def backward (f, idx, dout):
-        dout, dw, db = f(dout, caches[idx])
+        dout, dw, db = f(dout, caches[idx]['forward'])
         w_key = 'W{}'.format(idx + 1)
         b_key = 'b{}'.format(idx + 1)
         dw += reg * self.params[w_key]
@@ -325,8 +331,10 @@ class FullyConnectedNet(object):
         return dout
     
     dout = backward(affine_backward, hidden_dims_len - 1, dscores)
-    for i in reversed(range(hidden_dims_len - 1)):
-      dout = backward(affine_relu_backward, i, dout)
+    for idx in reversed(range(hidden_dims_len - 1)):
+      if (self.use_dropout):
+        dout = dropout_backward(dout, caches[idx]['dropout'])
+      dout = backward(affine_relu_backward, idx, dout)
 
     
     ############################################################################
