@@ -414,11 +414,15 @@ def dropout_forward(x, dropout_param):
     # TODO: Implement the training phase forward pass for inverted dropout.   #
     # Store the dropout mask in the mask variable.                            #
     ###########################################################################
+    #mask = (np.random.rand(x.shape[0], x.shape[1]) > p) / p
+    # x.shape이 tuple이라서 *x.shape으로 써야함
+    mask = (np.random.rand(*x.shape) > p) / p
     
-    # x.shape이 tuple이라서 *x.shape써야 하는 듯
-    mask = (np.random.rand(*x.shape) < p) / p
-    #mask = (np.random.rand(x.shape[0], x.shape[1]) < p) / p
-    #mask /= p
+    #mask = np.random.rand(*x.shape) > p
+    #mask /= p 로 하게되면 mask data type은 bool이고 p는 float이기 때문에
+    #mask를 float으로 직접 변환이 되지 않으므로
+    #mask = mask / p로 써주어야 새로운 곳에 output memory가 할당됨
+    #data type만 동일하다면 mask /= p가 속도가 더 빠름
     out = x*mask
     
     ###########################################################################
