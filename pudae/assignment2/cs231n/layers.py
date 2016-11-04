@@ -348,7 +348,8 @@ def dropout_forward(x, dropout_param):
     # np.random.rand : 
     #  Create an array of the given shape and populate it with random samples
     #  from a uniform distribution over [0, 1).
-    mask = (np.random.rand(*x.shape) < p) / p
+    mask = (np.random.rand(*x.shape) > p) / p
+    
     out = x * mask
     ###########################################################################
     #                            END OF YOUR CODE                             #
