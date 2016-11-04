@@ -30,7 +30,7 @@ def affine_forward(x, w, b):
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
-  cache = (x, w, b)
+  cache = (x, w)
   return out, cache
 
 
@@ -49,7 +49,7 @@ def affine_backward(dout, cache):
   - dw: Gradient with respect to w, of shape (D, M)
   - db: Gradient with respect to b, of shape (M,)
   """
-  x, w, b = cache
+  x, w = cache
   dx, dw, db = None, None, None
   #############################################################################
   # TODO: Implement the affine backward pass.                                 #
@@ -441,11 +441,12 @@ def conv_forward_naive(x, w, b, conv_param):
       i = out_i * stride
       j = out_j * stride
 
-      x2 = x_pad[:, :, i:(i + HH), j:(j + WW)].reshape(N, -1)  # x2: (N, C * HH * WW)
-      w2 = w.reshape(F, -1).T                                  # w2: (C * HH * WW, F)
-                                                               # b:  (F,)
+      x2 = x_pad[:, :, i:(i + HH), j:(j + WW)]  # x2: (N, C * HH * WW)
+                                                # w2: (C * HH * WW, F)
+                                                # b:  (F,)
 
-      o, _ = affine_forward(x2, w2, b)                         # o:  (N, F)
+      # o:  (N, F)
+      o, _ = affine_forward(x2.reshape(N, -1), w.reshape(F, -1).T, b)
       out[:, :, out_i, out_j] = o
 
   #############################################################################
@@ -472,7 +473,42 @@ def conv_backward_naive(dout, cache):
   #############################################################################
   # TODO: Implement the convolutional backward pass.                          #
   #############################################################################
-  pass
+  # - dout: Upstream derivatives., of shape (N, F, H', W') where H' and W' are given by
+  #  H' = 1 + (H + 2 * pad - HH) / stride
+  #  W' = 1 + (W + 2 * pad - WW) / stride
+
+  x, w, b, conv_param = cache
+
+  stride = conv_param['stride']
+  pad = conv_param['pad']
+
+  x_pad = np.pad(x, ((0,), (0,), (pad,), (pad,)), 'constant')
+
+  N, F, out_H, out_W = dout.shape
+  N, C, H2, W2 = x_pad.shape                 # H2 = H + 2 * pad, W2 = W + 2 * pad
+  F, C, HH, WW = w.shape
+
+  dx_pad = np.zeros_like(x_pad)
+  dw = np.zeros_like(w)
+  db = np.zeros_like(b)
+
+  for out_i in xrange(out_H):
+    for out_j in xrange(out_W):
+      i = out_i * stride
+      j = out_j * stride
+      
+      dout2 = dout[:, :, out_i, out_j]            # dout2: (N, F)
+      x2 = x_pad[:, :, i:(i + HH), j:(j + WW)]    # x2: (N, C, HH, WW)
+                                                  # w:  (F, C, HH, WW)
+                                                  # b:  (F,)       
+      dx2, dw2, db2 = affine_backward(dout2,
+                                      (x2.reshape(N, -1), w.reshape(F, -1).T))
+
+      dx_pad[:, :, i:(i + HH), j:(j + WW)] += dx2.reshape(*x2.shape)
+      dw += dw2.T.reshape(*dw.shape)
+      db += db2.reshape(*db.shape)
+
+  dx = dx_pad[:, :, pad:(H2 - pad), pad:(W2 - pad)]
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
