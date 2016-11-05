@@ -595,8 +595,8 @@ def max_pool_backward_naive(dout, cache):
           max_index = max_indices[k][l]
           max_h = max_index / pool_width + i
           max_w = max_index % pool_width + j
-          dx[k, l, max_h, max_w] = dout[k, l, out_i, out_j]
-            
+          dx[k, l, max_h, max_w] += dout[k, l, out_i, out_j]
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
