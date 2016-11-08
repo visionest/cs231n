@@ -95,8 +95,6 @@ class ThreeLayerConvNet(object):
     ############################################################################
     # conv - relu - 2x2 max pool - affine - relu - affine - softmax
     
-    N = X.shape[0]
-    
     out, conv_cache = conv_relu_pool_forward(X, W1, b1, conv_param, pool_param)
     out, fc_1_cache = affine_relu_forward(out, W2, b2)
     out, fc_2_cache = affine_forward(out, W3, b3)
@@ -122,7 +120,7 @@ class ThreeLayerConvNet(object):
     
     dout, grads['W3'], grads['b3'] = affine_backward(dout, fc_2_cache)
     dout, grads['W2'], grads['b2'] = affine_relu_backward(dout, fc_1_cache)
-    dout, grads['W1'], grads['b1'] = conv_relu_pool_backward(dout, conv_cache)  
+    _,    grads['W1'], grads['b1'] = conv_relu_pool_backward(dout, conv_cache)
     
     grads['W3'] += self.reg * self.params['W3']
     grads['W2'] += self.reg * self.params['W2']
