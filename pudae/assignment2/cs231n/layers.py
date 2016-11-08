@@ -494,7 +494,7 @@ def conv_backward_naive(dout, cache):
   dw = np.zeros_like(w)
   db = np.zeros_like(b)
 
-  spatial_shape = (N, C, HH, WW)
+  local_shape = (N, C, HH, WW)
   for out_i in xrange(out_H):
     for out_j in xrange(out_W):
       i = out_i * stride
@@ -503,11 +503,11 @@ def conv_backward_naive(dout, cache):
       dout2 = dout[:, :, out_i, out_j]            # dout2: (N, F)     
       dx2, dw2, db2 = affine_backward(dout2, conv_cache[(out_i, out_j)])
     
-      dx_pad[:, :, i:(i + HH), j:(j + WW)] += dx2.reshape(spatial_shape)
+      dx_pad[:, :, i:(i + HH), j:(j + WW)] += dx2.reshape(local_shape)
       dw += dw2.T.reshape(*dw.shape)
       db += db2.reshape(*db.shape)
 
-  dx = dx_pad[:, :, pad:(H2 - pad), pad:(W2 - pad)]
+  dx = dx_pad[:, :, pad:-pad, pad:-pad]
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
