@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 
 from cs231n.layers import *
@@ -48,9 +49,11 @@ class ThreeLayerConvNet(object):
     # of the output affine layer.                                              #
     ############################################################################
     
+    # Input > Convolution > ReLU > 2x2 max pool
     self.params['W1'] = np.random.normal(scale=weight_scale, size=(num_filters, input_dim[0], filter_size, filter_size))
-    W2_row_size = num_filters * input_dim[1]/2 * input_dim[2]/2
-    self.params['W2'] = np.random.normal(scale=weight_scale, size=(W2_row_size, hidden_dim)) 
+    # 2x2 max pool > Affine > ReLU
+    self.params['W2'] = np.random.normal(scale=weight_scale, size=(num_filters*input_dim[1]*input_dim[2]/4, hidden_dim)) 
+    # ReLU > Affine > Softmax
     self.params['W3'] = np.random.normal(scale=weight_scale, size=(hidden_dim, num_classes))
 
     self.params['b1'] = np.zeros(num_filters)
@@ -89,10 +92,13 @@ class ThreeLayerConvNet(object):
     # variable.                                                                #
     ############################################################################
     
-    out_1, cache_1 = conv_relu_pool_forward(X, W1, b1, conv_param, pool_param)
-    out_2, cache_2 = affine_relu_forward(out_1, W2, b2)
-    out_3, cache_3 = affine_forward(out_2, W3, b3)
-    scores = out_3
+    # Input > Convolution > ReLU > 2x2 max pool
+    out1, cache1 = conv_relu_pool_forward(X, W1, b1, conv_param, pool_param)
+    # 2x2 max pool > Affine > ReLU
+    out2, cache2 = affine_relu_forward(out1, W2, b2)
+    # ReLU > Affine > Softmax
+    out3, cache3 = affine_forward(out2, W3, b3)
+    scores = out3
     
     ############################################################################
     #                             END OF YOUR CODE                             #
@@ -112,9 +118,9 @@ class ThreeLayerConvNet(object):
     loss, dscores = softmax_loss(scores, y)
     loss += 0.5*self.reg*(np.sum(W1**2) + np.sum(W2**2) + np.sum(W3**2))
 
-    dx_3, grads['W3'], grads['b3'] = affine_backward(dscores, cache_3)
-    dx_2, grads['W2'], grads['b2'] = affine_relu_backward(dx_3, cache_2)
-    dx_1, grads['W1'], grads['b1'] = conv_relu_pool_backward(dx_2, cache_1)
+    dx3, grads['W3'], grads['b3'] = affine_backward(dscores, cache3)
+    dx2, grads['W2'], grads['b2'] = affine_relu_backward(dx3, cache2)
+    dx1, grads['W1'], grads['b1'] = conv_relu_pool_backward(dx2, cache1)
 
     grads['W3'] += self.reg*self.params['W3']
     grads['W2'] += self.reg*self.params['W2']
