@@ -97,13 +97,9 @@ class ThreeLayerConvNet(object):
     
     N = X.shape[0]
     
-    out, conv_cache = conv_forward_fast(X, W1, b1, conv_param)
-    out, relu_1_cache = relu_forward(out)
-    out, max_pool_cache = max_pool_forward_fast(out, pool_param)
-    max_pool_out_shape = out.shape
-    out, affine_1_cache = affine_forward(out.reshape(N, -1), W2, b2)
-    out, relu_2_cache = relu_forward(out)
-    out, affine_2_cache = affine_forward(out, W3, b3)
+    out, conv_cache = conv_relu_pool_forward(X, W1, b1, conv_param, pool_param)
+    out, fc_1_cache = affine_relu_forward(out, W2, b2)
+    out, fc_2_cache = affine_forward(out, W3, b3)
     
     scores = out
     ############################################################################
@@ -122,14 +118,15 @@ class ThreeLayerConvNet(object):
     ############################################################################
     
     loss, dout = softmax_loss(scores, y)
-    dout, grads['W3'], grads['b3'] = affine_backward(dout, affine_2_cache)
-    dout = relu_backward(dout, relu_2_cache)
-    dout, grads['W2'], grads['b2'] = affine_backward(dout, affine_1_cache)
+    loss += 0.5 * self.reg * (np.sum(W1 ** 2) + np.sum(W2 ** 2) + np.sum(W3 ** 2))
     
-    dout = dout.reshape(*max_pool_out_shape)
-    dout = max_pool_backward_fast(dout, max_pool_cache)
-    dout = relu_backward(dout, relu_1_cache)
-    dout, grads['W1'], grads['b1'] = conv_backward_fast(dout, conv_cache)
+    dout, grads['W3'], grads['b3'] = affine_backward(dout, fc_2_cache)
+    dout, grads['W2'], grads['b2'] = affine_relu_backward(dout, fc_1_cache)
+    dout, grads['W1'], grads['b1'] = conv_relu_pool_backward(dout, conv_cache)  
+    
+    grads['W3'] += self.reg * self.params['W3']
+    grads['W2'] += self.reg * self.params['W2']
+    grads['W1'] += self.reg * self.params['W1']
     
     ############################################################################
     #                             END OF YOUR CODE                             #
