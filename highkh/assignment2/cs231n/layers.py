@@ -548,6 +548,55 @@ def conv_backward_naive(dout, cache):
   #############################################################################
   # TODO: Implement the convolutional backward pass.                          #
   #############################################################################
+  
+  ##############==by snowyunee==###########
+  #Testing conv_backward_fast:
+  #Naive: 0.026229s
+  #Fast: 0.006315s
+  #Speedup: 4.153434x
+  #dx difference:  1.28920334946e-11
+  #dw difference:  1.76995772764e-13
+  #db difference:  7.95337196839e-15
+  #########################################
+  x, w, b, conv_param = cache
+  
+  def zero_pad(x, width):
+    #N, C, H, W
+    return np.lib.pad(x, ((0,), (0,), (width,), (width,)), 'constant', constant_values=(0,))
+
+  stride, pad = conv_param['stride'], conv_param['pad']
+  N, C, H, W = x.shape
+  F, C, HH, WW = w.shape
+
+  x_padded = zero_pad(x, pad)
+
+  dx = np.zeros_like(x_padded)
+  dw = np.zeros_like(w)
+  db = np.zeros_like(b)
+  _, _, HP, WP = x_padded.shape
+  
+  w2 = np.transpose(w.reshape(F, -1))
+  for hi, hp in enumerate(range(HP - HH + 1)[::stride]):
+    for wi, wp in enumerate(range(WP - WW + 1)[::stride]):
+      dout2 = dout[:, :, hi, wi]
+      x2 = x_padded[:, :, hp : hp + HH, wp : wp + WW]
+      dx2, dw2, db2 = affine_backward(dout2, (x2, w2, b))
+      dx[:, :, hp : hp + HH, wp : wp + WW] += dx2
+      dw += dw2.T.reshape(*dw.shape)
+      db += db2.reshape(*db.shape)
+
+  dx = dx[:, :, pad:-pad, pad:-pad]
+      
+  ##############==Origin==#################
+  # Testing conv_backward_fast:
+  #Naive: 2674.766461s
+  #Fast: 0.006588s
+  #Speedup: 406006.936378x
+  #dx difference:  1.43102991543e-11
+  #dw difference:  4.8324564186e-12
+  #db difference:  2.64046604536e-15
+  #########################################
+  '''
   x, w, b, conv_param = cache
   P, S = conv_param['pad'] ,conv_param['stride']
   # zero padding
@@ -587,6 +636,9 @@ def conv_backward_naive(dout, cache):
                 mask2[:, :, j + P - l * S] = 1.0
                 w_masked = np.sum(w[f, :, :, :] * mask1 * mask2, axis=(1, 2))
                 dx[nprime, :, i, j] += dout[nprime, f, k, l] * w_masked       # dX = dout * W + 0
+  '''
+  
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -704,7 +756,15 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
   # version of batch normalization defined above. Your implementation should  #
   # be very short; ours is less than five lines.                              #
   #############################################################################
-  pass
+  
+  N, C, H, W = x.shape
+  bn_shape = N*H*W
+  
+  bn_fwd = x.transpose(0, 2, 3, 1).reshape(bn_shape, C)
+  out, cache = batchnorm_forward(bn_fwd, gamma, beta, bn_param)
+  
+  out = out.reshape(N, H, W, C).transpose(0, 3, 1, 2) 
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -734,7 +794,15 @@ def spatial_batchnorm_backward(dout, cache):
   # version of batch normalization defined above. Your implementation should  #
   # be very short; ours is less than five lines.                              #
   #############################################################################
-  pass
+  
+  N, C, H, W = dout.shape
+  bn_shape = N*H*W
+    
+  bn_bwd = dout.transpose(0, 2, 3, 1).reshape(bn_shape, C)
+  dx, dgamma, dbeta = batchnorm_backward(bn_bwd, cache)
+  
+  dx = dx.reshape(N, H, W, C).transpose(0, 3, 1, 2)
+  
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
