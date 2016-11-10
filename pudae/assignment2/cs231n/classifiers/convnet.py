@@ -37,7 +37,12 @@ class ConvNet(object):
     self.params[kb] = b
     
     self.forwards.append(lambda X: conv_relu_forward(X, self.params[kW], self.params[kb], conv_param))
-    self.backwards.insert(0, conv_relu_backward)
+    
+    def backward(dout, cache):
+        dout, dw, db = conv_relu_backward(dout, cache)
+        return dout, { kW: dw, kb: db }
+    
+    self.backwards.insert(0, backward)
     
     self.output_dim = (num_filters, self.output_dim[1], self.output_dim[2])
     
@@ -45,7 +50,7 @@ class ConvNet(object):
     pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
     
     self.forwards.append(lambda X: max_pool_forward_fast(X, pool_param))
-    self.backwards.insert(0, lambda dout, cache: (max_pool_backward_fast(dout, cache), None, None))
+    self.backwards.insert(0, lambda dout, cache: (max_pool_backward_fast(dout, cache), {}))
     
     self.output_dim = (self.output_dim[0],
                        self.output_dim[1] / 2,
@@ -70,13 +75,18 @@ class ConvNet(object):
     self.params[kb] = b
     
     self.forwards.append(lambda X: affine_forward(X, self.params[kW], self.params[kb]))
-    self.backwards.insert(0, affine_backward)
+        
+    def backward(dout, cache):
+        dout, dw, db = affine_backward(dout, cache)
+        return dout, { kW: dw, kb: db }
+    
+    self.backwards.insert(0, backward)
     
     self.output_dim = output_dim
     
   def add_relu(self):
     self.forwards.append(lambda X: relu_forward(X))
-    self.backwards.insert(0, lambda dout, cache: (relu_backward(dout, cache), None, None))
+    self.backwards.insert(0, lambda dout, cache: (relu_backward(dout, cache), {}))
     
   def add_affine_relu(self, output_dim):
     self.add_affine(output_dim)
@@ -111,18 +121,13 @@ class ConvNet(object):
     Ws = [v for k, v in self.params.iteritems() if 'W' in k]
     loss += 0.5 * reg * sum(map(lambda w: np.sum(w * w), Ws))
     
-    dWbs = []
     for f, cache in zip(self.backwards, caches):
-      dout, dW, db = f(dout, cache)
-      if dW is not None:
-        dWbs.append((dW, db))
+      dout, grad = f(dout, cache)
+      grads.update(grad)
 
-    for i, (dW, db) in enumerate(reversed(dWbs)):
-      idx = i + 1
-      kW = 'W{}'.format(i + 1)
-      kb = 'b{}'.format(i + 1)
-      grads[kW] = dW + self.reg * self.params[kW]
-      grads[kb] = db
+    for k, v in self.params.iteritems():
+      if 'W' in k:
+        grads[k] += self.reg * v
     
     return loss, grads
     
