@@ -20,7 +20,8 @@ class ConvNet(object):
     self.forwards = []
     self.backwards = []
   
-  def add_conv(self, num_filters, filter_size):
+  def add_conv_relu(self, num_filters, filter_size):
+    weight_scale = np.sqrt(self.output_dim[0] * filter_size * filter_size / 2.) ** -1
     W = np.random.normal(scale = self.weight_scale,
                          size = (num_filters, self.output_dim[0], filter_size, filter_size))
     b = np.zeros(num_filters)
@@ -35,8 +36,8 @@ class ConvNet(object):
     self.params[kW] = W
     self.params[kb] = b
     
-    self.forwards.append(lambda X: conv_forward_fast(X, self.params[kW], self.params[kb], conv_param))
-    self.backwards.insert(0, conv_backward_fast)
+    self.forwards.append(lambda X: conv_relu_forward(X, self.params[kW], self.params[kb], conv_param))
+    self.backwards.insert(0, conv_relu_backward)
     
     self.output_dim = (num_filters, self.output_dim[1], self.output_dim[2])
     
@@ -54,8 +55,9 @@ class ConvNet(object):
     input_dim = self.output_dim
     if type(input_dim) == tuple:
         input_dim = np.prod(list(input_dim))
-        
-    W = np.random.normal(scale = self.weight_scale,
+    
+    weight_scale = np.sqrt(input_dim / 2.) ** -1
+    W = np.random.normal(scale = weight_scale,
                          size = (input_dim, output_dim))
     b = np.zeros(output_dim)
     W = W.astype(self.dtype)
