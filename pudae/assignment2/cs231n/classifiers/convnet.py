@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 
 from cs231n.layers import *
 from cs231n.fast_layers import *
@@ -8,11 +9,10 @@ from cs231n.layer_utils import *
 class ConvNet(object):
   
   def __init__(self, input_dim=(3, 32, 32), num_classes=10,
-               weight_scale=1e-3, reg=0.0, dtype=np.float32):
+               reg=0.0, dtype=np.float32):
     self.params = {}
     self.input_dim = input_dim
     self.num_classes = num_classes
-    self.weight_scale = weight_scale
     self.reg = reg
     self.dtype = dtype
     
@@ -20,9 +20,9 @@ class ConvNet(object):
     self.forwards = []
     self.backwards = []
   
-  def add_conv_relu(self, num_filters, filter_size):
+  def add_conv(self, num_filters, filter_size):
     weight_scale = np.sqrt(self.output_dim[0] * filter_size * filter_size / 2.) ** -1
-    W = np.random.normal(scale = self.weight_scale,
+    W = np.random.normal(scale = weight_scale,
                          size = (num_filters, self.output_dim[0], filter_size, filter_size))
     b = np.zeros(num_filters)
     W = W.astype(self.dtype)
@@ -36,10 +36,10 @@ class ConvNet(object):
     self.params[kW] = W
     self.params[kb] = b
     
-    self.forwards.append(lambda X, _: conv_relu_forward(X, self.params[kW], self.params[kb], conv_param))
+    self.forwards.append(lambda X, _: conv_forward_fast(X, self.params[kW], self.params[kb], conv_param))
     
     def backward(dout, cache):
-        dout, dw, db = conv_relu_backward(dout, cache)
+        dout, dw, db = conv_backward_fast(dout, cache)
         return dout, { kW: dw, kb: db }
     
     self.backwards.insert(0, backward)
@@ -99,10 +99,10 @@ class ConvNet(object):
     self.params[kgamma] = np.ones(self.output_dim[0]).astype(self.dtype)
     self.params[kbeta] = np.zeros(self.output_dim[0]).astype(self.dtype)
     
+    param = copy.deepcopy(bn_param)
     def forward(X, mode):
-        param = bn_param
-        param['mode'] = mode
-        return spatial_batchnorm_forward(X, self.params[kgamma], self.params[kbeta], param)
+      param['mode'] = mode
+      return spatial_batchnorm_forward(X, self.params[kgamma], self.params[kbeta], param)
     
     def backward(dout, cache):
       dout, dgamma, dbeta = spatial_batchnorm_backward(dout, cache)
@@ -110,6 +110,38 @@ class ConvNet(object):
     
     self.forwards.append(forward)
     self.backwards.insert(0, backward)
+  
+  def add_batchnorm(self, bn_param = {}):
+    D = self.output_dim
+    if type(self.output_dim) == tuple:
+        D = np.prod(list(D))
+        
+    idx = len(self.params) / 2 + 1
+    kgamma = 'bn_gamma{}'.format(idx)
+    kbeta = 'bn_beta{}'.format(idx)
+    self.params[kgamma] = np.ones(D).astype(self.dtype)
+    self.params[kbeta] = np.zeros(D).astype(self.dtype)
+    
+    param = copy.deepcopy(bn_param)
+    def forward(X, mode):
+      param['mode'] = mode
+      return batchnorm_forward(X, self.params[kgamma], self.params[kbeta], param)
+    
+    def backward(dout, cache):
+      dout, dgamma, dbeta = batchnorm_backward_alt(dout, cache)
+      return dout, { kgamma: dgamma, kbeta: dbeta }
+    
+    self.forwards.append(forward)
+    self.backwards.insert(0, backward)
+  
+  def add_dropout(self, dropout_param = {'p': 0.5}):
+    def forward(X, mode):
+      param = dropout_param
+      param['mode'] = mode
+      return dropout_forward(X, param)
+
+    self.forwards.append(forward)
+    self.backwards.insert(0, lambda dout, cache: (dropout_backward(dout, cache), {}))
   
   def loss(self, X, y=None):
 
