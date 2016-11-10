@@ -414,11 +414,15 @@ def dropout_forward(x, dropout_param):
     # TODO: Implement the training phase forward pass for inverted dropout.   #
     # Store the dropout mask in the mask variable.                            #
     ###########################################################################
+    #mask = (np.random.rand(x.shape[0], x.shape[1]) > p) / p
+    # x.shape이 tuple이라서 *x.shape으로 써야함
+    mask = (np.random.rand(*x.shape) > p) / p
     
-    # x.shape이 tuple이라서 *x.shape써야 하는 듯
-    mask = (np.random.rand(*x.shape) < p) / p
-    #mask = (np.random.rand(x.shape[0], x.shape[1]) < p) / p
-    #mask /= p
+    #mask = np.random.rand(*x.shape) > p
+    #mask /= p 로 하게되면 mask data type은 bool이고 p는 float이기 때문에
+    #mask를 float으로 직접 변환이 되지 않으므로
+    #mask = mask / p로 써주어야 새로운 곳에 output memory가 할당됨
+    #data type만 동일하다면 mask /= p가 속도가 더 빠름
     out = x*mask
     
     ###########################################################################
@@ -502,22 +506,23 @@ def conv_forward_naive(x, w, b, conv_param):
   F, _, HH, WW = w.shape
   pad, stride = conv_param['pad'], conv_param['stride']
   
+  # output size
   conv_H = 1 + (H + 2*pad - HH)/stride
   conv_W = 1 + (W + 2*pad - WW)/stride
-  
+  # zero padding : pad_width = pad , 2차원에서 0부터 pad만큼 0으로 붙임
   x_pad = np.pad(x, ((0,0), (0,0), (pad,pad), (pad,pad)), 'constant', constant_values=0)
   out = np.zeros([N, F, conv_H, conv_W])
   
-  for datapt_idx in xrange(N):
-    for filter_idx in xrange(F):
-      for hpos in xrange(conv_H):
-        for wpos in xrange(conv_W):
-          startw = wpos * stride
-          starth = hpos * stride
-          subarray = x_pad[datapt_idx, :, starth:starth+HH, startw:startw+WW]
-          subfilter = w[filter_idx, :, :]
-          dotproduct = subarray.flatten().dot(subfilter.flatten())
-          out[(datapt_idx, filter_idx, hpos, wpos)] = dotproduct + b[filter_idx]
+  for datapt_idx in xrange(N):      # data point
+    for filter_idx in xrange(F):    # the number of kernels
+      for hpos in xrange(conv_H):   # kernel height
+        for wpos in xrange(conv_W): # kernel width
+          startw = wpos * stride    # update horizontal positions with stride
+          starth = hpos * stride    # update vertical positions with stride
+          subarray = x_pad[datapt_idx, :, starth:starth+HH, startw:startw+WW]    # get subimage from padded image
+          subfilter = w[filter_idx, :, :]                                        # convolutional kernel
+          dotproduct = subarray.flatten().dot(subfilter.flatten())               # their dot product i.e., Convolution
+          out[(datapt_idx, filter_idx, hpos, wpos)] = dotproduct + b[filter_idx] # add bias term
 
   #############################################################################
   #                             END OF YOUR CODE                              #
@@ -543,37 +548,86 @@ def conv_backward_naive(dout, cache):
   #############################################################################
   # TODO: Implement the convolutional backward pass.                          #
   #############################################################################
+  
+  ##############==by snowyunee==###########
+  #Testing conv_backward_fast:
+  #Naive: 0.026229s
+  #Fast: 0.006315s
+  #Speedup: 4.153434x
+  #dx difference:  1.28920334946e-11
+  #dw difference:  1.76995772764e-13
+  #db difference:  7.95337196839e-15
+  #########################################
   x, w, b, conv_param = cache
-  P = conv_param['pad']
+  
+  def zero_pad(x, width):
+    #N, C, H, W
+    return np.lib.pad(x, ((0,), (0,), (width,), (width,)), 'constant', constant_values=(0,))
+
+  stride, pad = conv_param['stride'], conv_param['pad']
+  N, C, H, W = x.shape
+  F, C, HH, WW = w.shape
+
+  x_padded = zero_pad(x, pad)
+
+  dx = np.zeros_like(x_padded)
+  dw = np.zeros_like(w)
+  db = np.zeros_like(b)
+  _, _, HP, WP = x_padded.shape
+  
+  w2 = np.transpose(w.reshape(F, -1))
+  for hi, hp in enumerate(range(HP - HH + 1)[::stride]):
+    for wi, wp in enumerate(range(WP - WW + 1)[::stride]):
+      dout2 = dout[:, :, hi, wi]
+      x2 = x_padded[:, :, hp : hp + HH, wp : wp + WW]
+      dx2, dw2, db2 = affine_backward(dout2, (x2, w2, b))
+      dx[:, :, hp : hp + HH, wp : wp + WW] += dx2
+      dw += dw2.T.reshape(*dw.shape)
+      db += db2.reshape(*db.shape)
+
+  dx = dx[:, :, pad:-pad, pad:-pad]
+      
+  ##############==Origin==#################
+  # Testing conv_backward_fast:
+  #Naive: 2674.766461s
+  #Fast: 0.006588s
+  #Speedup: 406006.936378x
+  #dx difference:  1.43102991543e-11
+  #dw difference:  4.8324564186e-12
+  #db difference:  2.64046604536e-15
+  #########################################
+  '''
+  x, w, b, conv_param = cache
+  P, S = conv_param['pad'] ,conv_param['stride']
+  # zero padding
   x_pad = np.pad(x, ((0,), (0,), (P,), (P,)), 'constant')
 
   N, C, H, W = x.shape
   F, C, HH, WW = w.shape
   N, F, Hh, Hw = dout.shape
-  S = conv_param['stride']
-    
+      
   dw = np.zeros((F, C, HH, WW))
   
-  for fprime in range(F):
-    for cprime in range(C):
-      for i in range(HH):
-        for j in range(WW):
-          sub_xpad = x_pad[:, cprime, i:i + Hh * S:S, j:j + Hw * S:S]
+  for fprime in range(F):        # the number of kernels
+    for cprime in range(C):      # the number of channels
+      for i in range(HH):        # kernel height
+        for j in range(WW):      # kernel width
+          sub_xpad = x_pad[:, cprime, i:i + Hh * S:S, j:j + Hw * S:S]          # out = X*W + b  >  dout = d(X*W) + db > dW = dout * X + 0
           dw[fprime, cprime, i, j] = np.sum(dout[:, fprime, :, :] * sub_xpad)
 
   db = np.zeros((F))
   
   for fprime in range(F):
-    db[fprime] = np.sum(dout[:, fprime, :, :])
+    db[fprime] = np.sum(dout[:, fprime, :, :])   # dout = d(X*W) + db > db = 0 + dout
 
   dx = np.zeros((N, C, H, W))
   
-  for nprime in range(N):
-    for i in range(H):
-      for j in range(W):
-        for f in range(F):
-          for k in range(Hh):
-            for l in range(Hw):
+  for nprime in range(N):       # data point
+    for i in range(H):          # image height
+      for j in range(W):        # image width
+        for f in range(F):      # the number of kernels
+          for k in range(Hh):   # conv_out height
+            for l in range(Hw): # conv_out width
               mask1 = np.zeros_like(w[f, :, :, :])
               mask2 = np.zeros_like(w[f, :, :, :])
               if (i + P - k * S) < HH and (i + P - k * S) >= 0:
@@ -581,7 +635,10 @@ def conv_backward_naive(dout, cache):
               if (j + P - l * S) < WW and (j + P - l * S) >= 0:
                 mask2[:, :, j + P - l * S] = 1.0
                 w_masked = np.sum(w[f, :, :, :] * mask1 * mask2, axis=(1, 2))
-                dx[nprime, :, i, j] += dout[nprime, f, k, l] * w_masked
+                dx[nprime, :, i, j] += dout[nprime, f, k, l] * w_masked       # dX = dout * W + 0
+  '''
+  
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -609,7 +666,7 @@ def max_pool_forward_naive(x, pool_param):
   #############################################################################
   N, C, H, W = x.shape
   pool_height, pool_width, stride = (pool_param['pool_height'], pool_param['pool_width'], pool_param['stride'])
-
+  # output size
   H_prime = 1 + (H - pool_height) / stride
   W_prime = 1 + (W - pool_width) / stride
 
@@ -621,8 +678,8 @@ def max_pool_forward_naive(x, pool_param):
         for wpos in xrange(W_prime):
           startw = wpos * stride
           starth = hpos * stride
-          subarray = x[datapt_idx, c_idx, starth:starth+pool_height, startw:startw+pool_width]
-          out[(datapt_idx, c_idx, hpos, wpos)] = subarray.max()
+          subarray = x[datapt_idx, c_idx, starth:starth+pool_height, startw:startw+pool_width]  # get subimage from pool size
+          out[(datapt_idx, c_idx, hpos, wpos)] = subarray.max()                                 # replace its maximum
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -699,7 +756,15 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
   # version of batch normalization defined above. Your implementation should  #
   # be very short; ours is less than five lines.                              #
   #############################################################################
-  pass
+  
+  N, C, H, W = x.shape
+  bn_shape = N*H*W
+  
+  bn_fwd = x.transpose(0, 2, 3, 1).reshape(bn_shape, C)
+  out, cache = batchnorm_forward(bn_fwd, gamma, beta, bn_param)
+  
+  out = out.reshape(N, H, W, C).transpose(0, 3, 1, 2) 
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -729,7 +794,15 @@ def spatial_batchnorm_backward(dout, cache):
   # version of batch normalization defined above. Your implementation should  #
   # be very short; ours is less than five lines.                              #
   #############################################################################
-  pass
+  
+  N, C, H, W = dout.shape
+  bn_shape = N*H*W
+    
+  bn_bwd = dout.transpose(0, 2, 3, 1).reshape(bn_shape, C)
+  dx, dgamma, dbeta = batchnorm_backward(bn_bwd, cache)
+  
+  dx = dx.reshape(N, H, W, C).transpose(0, 3, 1, 2)
+  
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################

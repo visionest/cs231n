@@ -129,9 +129,7 @@ def svm_loss_vectorized(W, X, y, reg):
   dW1 = -1* X.transpose().dot(cnts)                  # dW1.shape           = (3073, 10)
   dW2 = X.transpose().dot(positive_flag)             # dW2.shape           = (3073, 10)
   dW = (dW1 + dW2)/num_train + reg*W                 # dW.shape            = (3073, 10)
-
- 
-    
+   
   
   #############################################################################
   #                             END OF YOUR CODE                              #
