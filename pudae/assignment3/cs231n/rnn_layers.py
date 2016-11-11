@@ -270,7 +270,21 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
   # TODO: Implement the forward pass for a single timestep of an LSTM.        #
   # You may want to use the numerically stable sigmoid implementation above.  #
   #############################################################################
-  pass
+  N, D = x.shape
+  _, H = prev_h.shape
+  
+  a = np.dot(x, Wx) + np.dot(prev_h, Wh) + b
+  ai, af, ao, ag = np.split(a, 4, axis=1)
+  
+  i = sigmoid(ai)
+  f = sigmoid(af)
+  o = sigmoid(ao)
+  g = np.tanh(ag)
+  
+  next_c = f * prev_c + i * g
+  next_h = o * np.tanh(next_c)
+
+  cache = (x, prev_h, prev_c, next_c, i, f, o, g, Wx, Wh)
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
@@ -302,7 +316,44 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
   # HINT: For sigmoid and tanh you can compute local derivatives in terms of  #
   # the output value from the nonlinearity.                                   #
   #############################################################################
-  pass
+  x, prev_h, prev_c, next_c, i, f, o, g, Wx, Wh = cache
+  # next_c = f * prev_c + i * g
+  dprev_c = dnext_c * f
+  df = dnext_c * prev_c
+  di = dnext_c * g
+  dg = dnext_c * i
+
+  # next_h = o * np.tanh(next_c)
+  do = dnext_h * np.tanh(next_c)
+  dtanh_next_c = dnext_h * o
+  
+  # tanh_next_c = np.tanh(next_c)
+  dnext_c2 = dtanh_next_c * (1 - np.tanh(next_c) * np.tanh(next_c))
+    
+  # next_c = f * prev_c + i * g
+  dprev_c += dnext_c2 * f
+  df += dnext_c2 * prev_c
+  di += dnext_c2 * g
+  dg += dnext_c2 * i
+  
+  # i = sigmoid(ai)
+  # f = sigmoid(af)
+  # o = sigmoid(ao)
+  # g = np.tanh(ag)
+  dai = di * i * (1 - i)
+  daf = df * f * (1 - f)
+  dao = do * o * (1 - o)
+  dag = dg * (1 - g * g)
+
+  # a = np.dot(x, Wx) + np.dot(prev_h, Wh) + b
+  # ai, af, ao, ag = np.split(a, 4, axis=1)
+  da = np.hstack((dai, daf, dao, dag))   
+  dx = np.dot(da, Wx.T)
+  dWx = np.dot(x.T, da)
+  dprev_h = np.dot(da, Wh.T) 
+  dWh = np.dot(prev_h.T, da)
+  db = np.sum(da, axis=0)
+
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
