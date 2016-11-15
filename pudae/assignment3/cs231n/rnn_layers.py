@@ -66,7 +66,7 @@ def rnn_step_backward(dnext_h, cache):
 
   dhraw = (1 - next_h * next_h) * dnext_h    # d tanh(x) / dx = 1 - tanh(x) ^ 2
                                              # (N, H)
-  dx = np.dot(dhraw, Wx.T)                    
+  dx = np.dot(dhraw, Wx.T)               
   dprev_h = np.dot(dhraw, Wh.T)
   dWx = np.dot(x.T, dhraw)
   dWh = np.dot(prev_h.T, dhraw)
@@ -108,9 +108,8 @@ def rnn_forward(x, h0, Wx, Wh, b):
   h = np.zeros((N, T, H))
   prev_h = h0
   for t in xrange(T):
-    hs, step_cache_t = rnn_step_forward(x[:, t, :], prev_h, Wx, Wh, b)
-    prev_h = hs
-    h[:, t, :] = hs
+    h[:, t, :], step_cache_t = rnn_step_forward(x[:, t, :], prev_h, Wx, Wh, b)
+    prev_h = h[:, t, :]
     step_cache.append(step_cache_t)
   
   cache = (x, step_cache)
@@ -158,7 +157,7 @@ def rnn_backward(dh, cache):
     dWx += dWx2
     dWh += dWh2
     db += db2
-  dh0 = dprev_h
+  dh0 = dnext_h
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
@@ -190,6 +189,10 @@ def word_embedding_forward(x, W):
   # W (V, D)
   # out (N, T, D)
   # out[0] = W[x[0]]
+  # out[1] = W[x[1]]
+  # ...
+  # out[N-1] = W[x[N-1]]
+  
   out = W[x]
   cache = (x, W)
   ##############################################################################
@@ -219,6 +222,25 @@ def word_embedding_backward(dout, cache):
   #                                                                            #
   # HINT: Look up the function np.add.at                                       #
   ##############################################################################
+  """
+  W = [[0,0,0,0],
+       [1,1,1,1],
+       [2,2,2,2],
+       [3,3,3,3]]
+       
+  x[i] = [0, 2, 0, 3]
+  
+  out[i] = [[0,0,0,0]
+            [2,2,2,2],
+            [0,0,0,0],
+            [3,3,3,3]]
+            
+  dout[i] = [[5,5,5,5]
+             [6,6,6,6],
+             [7,7,7,7],
+             [8,8,8,8]]
+  
+  """
   x, W = cache
     
   dW = np.zeros_like(W)
