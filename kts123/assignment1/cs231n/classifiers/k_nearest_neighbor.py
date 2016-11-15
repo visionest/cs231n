@@ -1,3 +1,4 @@
+#-*- coding: utf-8 -*-
 import numpy as np
 from scipy import stats
 
@@ -9,14 +10,14 @@ class KNearestNeighbor(object):
 
   def train(self, X, y):
     """
-    Train the classifier. For k-nearest neighbors this is just 
-    memorizing the training data.
-
-    Inputs:
-    - X: A numpy array of shape (num_train, D) containing the training data
-      consisting of num_train samples each of dimension D.
-    - y: A numpy array of shape (N,) containing the training labels, where
-         y[i] is the label for X[i].
+    분류기를 훈련시키기.
+    k-nearest neighbors 에서의 훈련은 단순히 기억만 하고 있는 것임.
+    
+    입력:
+    - X: (num_train, D) shape의 numpy 배열. 
+         num_train 개수의 D차원 샘플로 구성된 훈련 데이터.
+    - y: (N,) shape의 numpy 배열.
+         훈련 라벨(ground truth). X[i]에 대한 라벨은 y[i]
     """
     self.X_train = X
     self.y_train = y
@@ -49,38 +50,32 @@ class KNearestNeighbor(object):
 
   def compute_distances_two_loops(self, X):
     """
-    Compute the distance between each test point in X and each training point
-    in self.X_train using a nested loop over both the training data and the 
-    test data.
+    X 의 각 테스트 포인트에 대해 self.X_train 모든 훈련 포인트와의 거리를 계산.
+    훈련 데이터와 테스트 데이터 모두 훓는 이중 루프 이용하시오.
 
     Inputs:
-    - X: A numpy array of shape (num_test, D) containing test data.
+    - X: (num_test, D) shape 의 numpy 배열. 테스트 데이터가 담겨 있음
 
     Returns:
-    - dists: A numpy array of shape (num_test, num_train) where dists[i, j]
-      is the Euclidean distance between the ith test point and the jth training
-      point.
+    - dists: (num_test, num_train) shape의 numpy 배열.
+      dists[i, j] := i번째 테스트 포인트와 j번째 훈련 포인트 사이의 유클리디안 거리  
     """
-    num_test = X.shape[0]
+    num_test  = X.shape[0]
     num_train = self.X_train.shape[0]
-    dists = np.zeros((num_test, num_train))
+    dists     = np.zeros((num_test, num_train))
     for i in xrange(num_test):
-      for j in xrange(num_train):
+        for j in xrange(num_train):
         #####################################################################
-        # TODO:                                                             #
-        # Compute the l2 distance between the ith test point and the jth    #
-        # training point, and store the result in dists[i, j]. You should   #
-        # not use a loop over dimension.                                    #
+        # i번째 테스트 포인트와 j번째 훈련 포인트간의 유클리디안 거리 계산  #
+        # 후 그 값을 dists[i, j] 에 저장하시오.                             #
+        # 디맨션을 훓는 루프를 사용하면 안됨                                #
         #####################################################################
-        A  = X[i]
-        B  = self.X_train[j]
+            A  = X[i]
+            B  = self.X_train[j]
         
-        A_minus_B        = (A - B)
-        A_minus_B_square = np.square(A_minus_B)        
-        dists[i][j] = np.sqrt(np.sum(A_minus_B_square))
-        #####################################################################
-        #                       END OF YOUR CODE                            #
-        #####################################################################
+            A_minus_B        = (A - B)
+            A_minus_B_square = np.square(A_minus_B)        
+            dists[i][j]      = np.sqrt(np.sum(A_minus_B_square))
     return dists
 
   def compute_distances_one_loop(self, X):
@@ -90,29 +85,25 @@ class KNearestNeighbor(object):
 
     Input / Output: Same as compute_distances_two_loops
     """
-    num_test = X.shape[0]
+    num_test  = X.shape[0]
     num_train = self.X_train.shape[0]
-    dists = np.zeros((num_test, num_train))
+    dists     = np.zeros((num_test, num_train))
     for i in xrange(num_test):
-      #######################################################################
-      # TODO:                                                               #
-      # Compute the l2 distance between the ith test point and all training #
-      # points, and store the result in dists[i, :].                        #
-      #######################################################################
-      A   = X[i]
-      B   = self.X_train
+        ####################################################################
+        # i번째 테스트 포인트와 모든 훈련 포인트와의 유클리드 거리 계산 후 #
+        # 그 값을 dists[i, :] 에 저장하시오                                #
+        ####################################################################
+        A   = X[i]
+        B   = self.X_train
     
-      A_square = np.sum(np.square(A))
-      B_square = np.sum(np.square(B), axis = 1)
+        A_square = np.sum(np.square(A))
+        B_square = np.sum(np.square(B), axis = 1)
     
-      AB = np.dot(A, np.transpose(B))
+        AB = np.dot(A, np.transpose(B))
       
-      squares = A_square - 2*AB + B_square
+        squares = A_square - 2*AB + B_square
 
-      dists[i] = np.sqrt(squares) 
-      #######################################################################
-      #                         END OF YOUR CODE                            #
-      #######################################################################
+        dists[i] = np.sqrt(squares) 
     return dists
 
   def compute_distances_no_loops(self, X):
