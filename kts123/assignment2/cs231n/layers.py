@@ -1,5 +1,6 @@
 #-*- coding: utf-8 -*-
 import numpy as np
+import itertools
 
 
 def affine_forward(x, w, b):
@@ -550,7 +551,7 @@ def dropout_forward(x, dropout_param):
     # TODO: Implement the training phase forward pass for inverted dropout.   #
     # Store the dropout mask in the mask variable.                            #
     ###########################################################################    
-    mask      = (np.random.rand(*x.shape) < p) 
+    mask      = (np.random.rand(*x.shape) >= p) 
     filtered  = x * mask  
     out       = filtered / p  # invert
     ###########################################################################
@@ -602,7 +603,7 @@ def conv_forward_naive(x, w, b, conv_param):
 
   The input consists of N data points, each with C channels, height H and width
   W. We convolve each input with F different filters, where each filter spans
-  all C channels and has height HH and width HH.
+  all C channels and has height HH and width WW.
 
   Input:
   - x: Input data of shape (N, C, H, W)
@@ -624,7 +625,34 @@ def conv_forward_naive(x, w, b, conv_param):
   # TODO: Implement the convolutional forward pass.                           #
   # Hint: you can use the function np.pad for padding.                        #
   #############################################################################
-  pass
+  # see: https://cloud.githubusercontent.com/assets/1628848/20039453/8e39ae52-a487-11e6-9776-f1d306054535.png
+  pad, stride = conv_param['pad'], conv_param['stride']
+  N, C, H,  W  = x.shape
+  F, _, HH, WW = w.shape
+  Hp, Wp       = 1 + (H + 2 * pad - HH) / stride, 1 + (W + 2 * pad - WW) / stride
+
+  # x -> np.pad :: (N, C, H, W) -> (N, C, pad + H + pad, pad + W + pad)
+  x = np.pad(x, pad_width=((0,0), (0,0), (pad, pad), (pad, pad)), mode='constant', constant_values=0)
+  
+  # x w b -> conv_one_filter :: (C,H,W) (C, HH, WW) () -> (Hp, Wp)
+  def conv_one_filter (x, w, b):
+    out = np.zeros((Hp, Wp))
+    for hp, wp, c, hh, ww in itertools.product(xrange(Hp), xrange(Wp), xrange(C), xrange(HH), xrange(WW)):
+      h_, w_ = hp*stride + hh, wp*stride + ww
+      out[hp][wp] += x[c][h_][w_] * w[c][hh][ww]
+    return out + b
+
+  # x -> conv_all_filters :: (C,H,W) -> (F, Hp, Wp)
+  def conv_all_filters (x): return [conv_one_filter(x, wi, bi) for wi,bi in zip(w,b)]
+      
+  # x -> conv_batch :: (N, C, H, W) -> (N, F, Hp, Wp)
+  def conv_batch(x) : return [conv_all_filters(xi) for xi in x]
+  out = np.array(conv_batch(x))
+
+
+  cp = conv_param;
+  cp['N'], cp['C'],  cp['H'],   cp['W']            = N, C, H, W
+  cp['F'], cp['HH'], cp['WW'], cp['Hp'], cp['Wp']  = F, HH, WW, Hp, Wp
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -649,7 +677,63 @@ def conv_backward_naive(dout, cache):
   #############################################################################
   # TODO: Implement the convolutional backward pass.                          #
   #############################################################################
-  pass
+  x, w,  b,  cp               = cache
+  N, C,  H,  W,  pad, stride  = cp['N'], cp['C'],  cp['H'],  cp['W'],  cp['pad'], cp['stride']
+  F, HH, WW, Hp, Wp           = cp['F'], cp['HH'], cp['WW'], cp['Hp'], cp['Wp']
+    
+  def zeros_like (*xs)   : return tuple([np.zeros_like(x) for x in list(xs)])
+  def df_mul (dout, x, y): return dout * y , dout * x     # f x y  = x * y    =>  dx, dy = y, x
+
+  """
+  def conv_one_filter (x, w, b):
+    out = np.zeros((Hp, Wp))
+    for hp, wp, c, hh, ww in itertools.product(xrange(Hp), xrange(Wp), xrange(C), xrange(HH), xrange(WW)):
+      h_, w_ = hp*stride + hh, wp*stride + ww
+      out[hp][wp] += x[c][h_][w_] * w[c][hh][ww]
+    return out + b
+  """
+  def df_conv_one_filter(dout, x, w, b):
+    dx, dw, db = zeros_like(x, w, b)
+    db += np.sum(dout)
+    for hp, wp, c, hh, ww in itertools.product(xrange(Hp), xrange(Wp), xrange(C), xrange(HH), xrange(WW)):
+      h_, w_ = hp*stride + hh, wp*stride + ww  
+      r = df_mul(dout[hp][wp], x[c][h_][w_], w[c][hh][ww])
+      dx[c][h_][w_] += r[0]
+      dw[c][hh][ww] += r[1]
+    return dx, dw, db
+
+  """
+  def conv_all_filters (x, w, b): 
+    out = np.zeros_like((F, Hp, Wp))
+    for i in xrange(F):
+      out[i] = conv_one_filter(x, w[i], b[i])
+  """
+  def df_conv_all_filters(dout, x, w, b):
+    dx, dw, db = zeros_like(x, w, b)
+    for i in xrange(F):
+      r      = df_conv_one_filter(dout[i], x, w[i], b[i])
+      dx    += r[0]
+      dw[i] += r[1]
+      db[i] += r[2] 
+    return dx, dw, db
+
+  """    
+  def conv_batch(x, w, b):
+    out = np.zeros((N,F,Hp,Wp))
+    for i in xrange(N):
+      out[i] = conv_all_filters(x[i], w, b)
+  """
+  def df_conv_batch(dout, x, w, b):
+    dx, dw, db = zeros_like(x, w, b)
+    for i in xrange(N):
+      r      = df_conv_all_filters(dout[i], x[i], w, b)
+      dx[i] += r[0]
+      dw    += r[1]
+      db    += r[2]
+    return dx, dw, db
+
+  dx, dw, db = df_conv_batch(dout, x, w, b)
+  dx = dx[:, :, pad:-pad, pad:-pad]
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -675,7 +759,29 @@ def max_pool_forward_naive(x, pool_param):
   #############################################################################
   # TODO: Implement the max pooling forward pass                              #
   #############################################################################
-  pass
+  # seee https://cloud.githubusercontent.com/assets/1628848/20079079/7a074228-a586-11e6-8144-d529efc1aa7b.png
+  N, C, H, W     = x.shape
+  PH, PW, stride = pool_param['pool_height'], pool_param['pool_width'], pool_param['stride']
+  OH, OW         = 1 + (H - PH) / stride, 1 + (W - PW) / stride
+       
+  def id(x):            return x
+  
+  def argmax(x, h, w):
+    range  = x[h:h+PH, w:w+PW]
+    idx    = np.unravel_index(np.argmax(range), (PH,PW))
+    return  h + idx[0], w + idx[1]
+
+  # x -> pooling :: (C, H,W) -> (C, OH, OW)
+  def pooling (x):
+    out = np.zeros((C, OH, OW))
+    for c, oh, ow, in itertools.product(xrange(C), xrange(OH), xrange(OW)):      
+      h, w           = argmax(x[c], oh*stride, ow*stride)
+      out[c][oh][ow] = id(x[c][h][w])
+    return out     
+  
+  # x -> pooling_batch :: (N, C, H, W) -> (N, C, OH, OW)
+  def pooling_batch(x) : return [pooling(xi) for xi in x]
+  out = np.array(pooling_batch(x))
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -698,7 +804,51 @@ def max_pool_backward_naive(dout, cache):
   #############################################################################
   # TODO: Implement the max pooling backward pass                             #
   #############################################################################
-  pass
+  x, pp = cache
+  N, C, H, W     = x.shape
+  PH, PW, stride = pp['pool_height'], pp['pool_width'], pp['stride']
+  OH, OW         = 1 + (H - PH) / stride, 1 + (W - PW) / stride
+  
+  def argmax(x, h, w):
+    range  = x[h:h+PH, w:w+PW]
+    idx    = np.unravel_index(np.argmax(range), (PH,PW))
+    return  h + idx[0], w + idx[1]
+
+  """
+  def id(x):           return x
+  """
+  def df_id(dout, x):  return 1. * dout
+  
+  """
+  def pooling (x):
+    out = np.zeros((C, OH, OW))
+    for c, oh, ow, in itertools.product(xrange(C), xrange(OH), xrange(OW)):      
+      h, w           = argmax(x[c], oh*stride, ow*stride)
+      out[c][oh][ow] = id(x[c][h][w])
+    return out   
+  """
+  def df_pooling(dout, x):    
+    dx = np.zeros_like(x)
+    for c, oh, ow, in itertools.product(xrange(C), xrange(OH), xrange(OW)):
+      h, w           = argmax(x[c], oh*stride, ow*stride)
+      dx[c][h][w]   += df_id(dout[c][oh][ow], x[c][h][w])
+    return dx
+
+  """
+  def pooling_batch(x) : 
+    out = np.zeros_like(x)
+    for i in xrange(N):
+      out[i] = pooling(x[i])
+  return out
+  """
+  def df_pooling_batch(dout, x):
+    dx = np.zeros_like(x)
+    for i in xrange(N):
+      dx[i] += df_pooling(dout[i], x[i])
+    return dx
+ 
+  dx = df_pooling_batch(dout, x)
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -732,11 +882,20 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
   #############################################################################
   # TODO: Implement the forward pass for spatial batch normalization.         #
   #                                                                           #
-  # HINT: You can implement spatial batch normalization using the vanilla     #
-  # version of batch normalization defined above. Your implementation should  #
-  # be very short; ours is less than five lines.                              #
+  # 힌트: vanilla 버전의 배치 노말라이제이션을 이용해 작성할 수 있다.         #  
+  # 5줄 이하면 되야 한다                                                      #
   #############################################################################
-  pass
+  # see https://www.reddit.com/r/cs231n/comments/443y2g/hints_for_a2/  의 reshaping 파트.
+  N, C, H, W = x.shape
+  #                   from  N, C, H, W
+  #                     to  N, H, W, C
+  x          =  x.transpose(0, 2, 3, 1).reshape((N*H*W, C))
+  out, cache =  batchnorm_forward(x, gamma, beta, bn_param)
+                  
+  #                               from   N, H, W, C
+  #                                 to   N, C, H, W
+  out = out.reshape((N,H,W,C)).transpose(0, 3, 1, 2)
+    
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -766,7 +925,31 @@ def spatial_batchnorm_backward(dout, cache):
   # version of batch normalization defined above. Your implementation should  #
   # be very short; ours is less than five lines.                              #
   #############################################################################
-  pass
+  '''
+       C0       C1        C2
+    [[u, v]   [[a, b]   [[1, 2]
+     [w, x]]   [c, d]]   [3, 4]]
+     
+     [u1, v1, w1, x1, a1, b1, c1, d1, 11, 21, 31, 41]
+     [u2, v2, w2, x2, a2, b2, c2, d2, 12, 22, 32, 42]
+   
+   
+        C0  C1 C2
+    => [[u, a, 1]
+        [v, b, 2]
+        [w, c, 3]
+        [x, d, 4]]
+        
+  '''
+  N, C, H, W = dout.shape
+  #                           from   N, C, H, W
+  #                             to   N, H, W, C 
+  dout              = dout.transpose(0, 2, 3, 1).reshape((N*H*W, C))
+  dx, dgamma, dbeta = batchnorm_backward_alt(dout, cache) # cache : x, gamma, beta
+  #                               from   N, H, W, C                       
+  #                               from   N, C, H, W                       
+  dx = dx.reshape(N, H, W, C).transpose((0, 3, 1, 2))
+                  
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
