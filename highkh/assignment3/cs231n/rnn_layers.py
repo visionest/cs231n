@@ -124,7 +124,8 @@ def rnn_forward(x, h0, Wx, Wh, b):
     return np.transpose(A, (1,0,2))
   
   x = transpose102(x)
-  h = np.empty((T, N, H))
+  h = np.zeros((T, N, H))
+  #h = np.empty((T, N, H)) # initialize random garbege value
   
   h[T-1] = h0
   for time in xrange(T):
@@ -180,9 +181,7 @@ def rnn_backward(dh, cache):
   dWx = np.zeros((D, H))
   dWh = np.zeros((H, H))
   db = np.zeros((H))
-
   
-  #for time in reversed(xrange(T)):
   for time in xrange(T-1,-1,-1):
     curr_dh = dh[time] + prev_dh
     prev_dx, prev_dh, prev_dWx, prev_dWh, prev_db = rnn_step_backward(curr_dh, cache[time])
