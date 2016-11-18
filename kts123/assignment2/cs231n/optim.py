@@ -151,13 +151,21 @@ def adam(x, dx, config=None):
   eps = config['epsilon']
   m = config['m']
   v = config['v']
+  t = config['t']
   
   m = beta1 * m + (1 - beta1) * dx
   v = beta2 * v + (1 - beta2) * np.square(dx)
-  next_x = x - learning_rate * m / (np.sqrt(v) + eps)
+  t = t + 1
+
+  mt = m / (1-beta1**t)
+  vt = v / (1-beta2**t)
+
+  next_x = x - learning_rate * mt / (np.sqrt(vt) + eps)
 
   config['m'] = m
   config['v'] = v
+  config['t'] = t
+  
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
