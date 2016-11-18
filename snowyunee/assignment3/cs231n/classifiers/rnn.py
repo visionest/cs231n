@@ -119,7 +119,8 @@ class CaptioningRNN(object):
     # In the forward pass you will need to do the following:                   #
     # (1) Use an affine transformation to compute the initial hidden state     #
     #     from the image features. This should produce an array of shape (N, H)#
-    # (2) Use a word embedding layer to transform the words in captions_in     #
+    # (2) Use a word embedding layer to transform the words in captions_in    
+    #
     #     from indices to vectors, giving an array of shape (N, T, W).         #
     # (3) Use either a vanilla RNN or LSTM (depending on self.cell_type) to    #
     #     process the sequence of input word vectors and produce hidden state  #

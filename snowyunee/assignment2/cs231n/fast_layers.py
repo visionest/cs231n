@@ -168,6 +168,45 @@ def max_pool_backward_fast(dout, cache):
   else:
     raise ValueError('Unrecognized method "%s"' % method)
 
+def average_pool_forward_fast(x, pool_param):
+  """
+  A fast implementation of the forward pass for a max pooling layer.
+
+  This chooses between the reshape method and the im2col method. If the pooling
+  regions are square and tile the input image, then we can use the reshape
+  method which is very fast. Otherwise we fall back on the im2col method, which
+  is not much faster than the naive method.
+  """
+  N, C, H, W = x.shape
+  pool_height, pool_width = pool_param['pool_height'], pool_param['pool_width']
+  stride = pool_param['stride']
+
+  same_size = pool_height == pool_width == stride
+  tiles = H % pool_height == 0 and W % pool_width == 0
+  if same_size and tiles:
+    out, reshape_cache = max_pool_forward_reshape(x, pool_param)
+    cache = ('reshape', reshape_cache)
+  else:
+    out, im2col_cache = max_pool_forward_im2col(x, pool_param)
+    cache = ('im2col', im2col_cache)
+  return out, cache
+
+
+def average_pool_backward_fast(dout, cache):
+  """
+  A fast implementation of the backward pass for a max pooling layer.
+
+  This switches between the reshape method an the im2col method depending on
+  which method was used to generate the cache.
+  """
+  method, real_cache = cache
+  if method == 'reshape':
+    return max_pool_backward_reshape(dout, real_cache)
+  elif method == 'im2col':
+    return max_pool_backward_im2col(dout, real_cache)
+  else:
+    raise ValueError('Unrecognized method "%s"' % method)
+
 
 def max_pool_forward_reshape(x, pool_param):
   """

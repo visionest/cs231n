@@ -45,6 +45,50 @@ class ConvNet(object):
     self.backwards.insert(0, backward)
     
     self.output_dim = (num_filters, self.output_dim[1], self.output_dim[2])
+
+    
+  def add_conv2(self, num_filters, filter_size, pad_size, stride_size):
+    
+    # Accepts a volume of size W1×H1×D1W1×H1×D1
+    # Requires four hyperparameters:
+    # Number of filters KK,
+    # their spatial extent FF,
+    # the stride SS,
+    # the amount of zero padding PP.
+    # Produces a volume of size W2×H2×D2 where:
+    # W2=(W1−F+2P)/S+1
+    # H2=(H1−F+2P)/S+1 (i.e. width and height are computed equally by symmetry)
+    # D2=K
+
+    D1, W1, H1 = output_dim
+    W2 = (W1 - num_filters + 2 * pad_size) / stride_size + 1
+    H2 = (H1 - num_filters + 2 * pad_size) / stride_size + 1
+    D2 = number_filters
+    weight_scale = np.sqrt(self.output_dim[0] * filter_size * filter_size / 2.) ** -1
+    W = np.random.normal(scale = weight_scale,
+                         size = (num_filters, self.output_dim[0], filter_size, filter_size))
+    b = np.zeros(num_filters)
+    W = W.astype(self.dtype)
+    b = b.astype(self.dtype)
+    
+    conv_param = {'stride': stride_size, 'pad': pad_size}
+    
+    idx = len(self.params) / 2 + 1
+    kW = 'W{}'.format(idx)
+    kb = 'b{}'.format(idx)
+    self.params[kW] = W
+    self.params[kb] = b
+    
+    self.forwards.append(lambda X, _: conv_forward_fast(X, self.params[kW], self.params[kb], conv_param))
+    
+    def backward(dout, cache):
+        dout, dw, db = conv_backward_fast(dout, cache)
+        return dout, { kW: dw, kb: db }
+    
+    self.backwards.insert(0, backward)
+    
+    self.output_dim = (num_filters, self.output_dim[1], self.output_dim[2])
+
     
   def add_max_pool(self):
     pool_param = {'pool_height': 2, 'pool_width': 2, 'stride': 2}
@@ -55,7 +99,18 @@ class ConvNet(object):
     self.output_dim = (self.output_dim[0],
                        self.output_dim[1] / 2,
                        self.output_dim[2] / 2)
+    
+  def add_max_pool2(self, size):
+    pool_param = {'pool_height': size, 'pool_width': size, 'stride': size}
+    
+    self.forwards.append(lambda X, _: max_pool_forward_fast(X, pool_param))
+    self.backwards.insert(0, lambda dout, cache: (max_pool_backward_fast(dout, cache), {}))
+    
+    self.output_dim = (self.output_dim[0],
+                       self.output_dim[1] / size,
+                       self.output_dim[2] / size)
 
+    
   def add_affine(self, output_dim):
     input_dim = self.output_dim
     if type(input_dim) == tuple:
