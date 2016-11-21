@@ -151,6 +151,8 @@ class CaptioningRNN(object):
     '''
     if self.cell_type == 'rnn':
         h, cache_fwd = rnn_forward(x, h0, Wx, Wh, b)
+    elif self.cell_type == 'lstm':
+        h, cache_fwd = lstm_forward(x, h0, Wx, Wh, b)
     else:
         raise ValueError('Invalid cell_type "%s"' % cell_type)
       
@@ -173,6 +175,8 @@ class CaptioningRNN(object):
     ###(3)
     if self.cell_type == 'rnn':
         dx, dh0, dWx, dWh, db = rnn_backward(dh, cache_fwd)
+    elif self.cell_type == 'lstm':
+        dx, dh0, dWx, dWh, db = lstm_backward(dh, cache_fwd)
     else:
         raise ValueError('Invalid cell_type "%s"' % cell_type)
         
@@ -264,18 +268,23 @@ class CaptioningRNN(object):
     start_captions = self._start*np.ones((N, 1), dtype=np.int32)
     
     prev_h = h0
+    prev_c = np.zeros_like(h0)
     
     for time in xrange(max_length):
         we_out, cache_wefwd = word_embedding_forward(start_captions, W_embed)
         
         if self.cell_type == 'rnn':
             next_h, cache_rsfwd = rnn_step_forward(we_out.squeeze(), prev_h, Wx, Wh, b)
+        elif self.cell_type == 'lstm':
+            next_h, next_c, cache_lsfwd = lstm_step_forward(we_out.squeeze(), prev_h, prev_c, Wx, Wh, b)
+            prev_c = next_c
         else:
             raise ValueError('Invalid cell_type "%s"' % cell_type)
             
         ta_out, cache_tafwd = temporal_affine_forward(np.expand_dims(next_h, axis=1), W_vocab, b_vocab)
         
         prev_h = next_h
+            
         captions[:, time] = np.argmax(ta_out, axis=2).squeeze()       
         start_captions = captions[:, time]
     ############################################################################
