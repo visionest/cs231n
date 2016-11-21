@@ -2,7 +2,8 @@ import numpy as np
 
 from cs231n.layers import *
 from cs231n.rnn_layers import *
-
+from functools import partial
+import copy
 
 class CaptioningRNN(object):
   """
@@ -119,8 +120,7 @@ class CaptioningRNN(object):
     # In the forward pass you will need to do the following:                   #
     # (1) Use an affine transformation to compute the initial hidden state     #
     #     from the image features. This should produce an array of shape (N, H)#
-    # (2) Use a word embedding layer to transform the words in captions_in    
-    #
+    # (2) Use a word embedding layer to transform the words in captions_in     #
     #     from indices to vectors, giving an array of shape (N, T, W).         #
     # (3) Use either a vanilla RNN or LSTM (depending on self.cell_type) to    #
     #     process the sequence of input word vectors and produce hidden state  #
@@ -136,7 +136,58 @@ class CaptioningRNN(object):
     # defined above to store loss and gradients; grads[k] should give the      #
     # gradients for self.params[k].                                            #
     ############################################################################
-    pass
+    dfs = []
+    
+    # 1)
+    h0, cache0 = affine_forward(features, W_proj, b_proj)
+    def df0 (dout):
+      dx, dw, db = affine_backward(dout, cache0)
+      grads['W_proj'] = dw
+      grads['b_proj'] = db
+      return dx
+    
+    # 2)
+    x_embed, cache1 = word_embedding_forward(captions_in, W_embed)  # x_embed : (N, T, D)
+    def df1 (dout):
+      dW = word_embedding_backward(dout, cache1)
+      grads['W_embed'] = dW
+
+    def df2 (dout):
+      dx, dh0 = dout
+      df1(dx)
+      df0(dh0)
+       
+    dfs.append(df2)
+        
+    # 3)
+    def df3 (df, dout, cache):
+      dx, dh0, dWx, dWh, db = df(dout, cache)
+      grads['Wx'] = dWx
+      grads['Wh'] = dWh
+      grads['b'] = db
+      return dx, dh0
+
+    if (self.cell_type == 'rnn'):
+      h, cache = rnn_forward(x_embed, h0, Wx, Wh, b)
+      #dfs.append(partial(df3, df=rnn_backward, cache=cache)) # with partial, parameter order is important
+      dfs.append(lambda (dout): df3(dout=dout, df=rnn_backward, cache=cache))
+
+    # 4)
+    scores, cache4 = temporal_affine_forward(h, W_vocab, b_vocab)
+    def df4 (dout):
+      dx, grads['W_vocab'], grads['b_vocab'] = temporal_affine_backward(dout, cache4)
+      return dx
+    dfs.append(df4)
+
+    # 5)
+    loss, dscores = temporal_softmax_loss(scores, captions_out, mask)
+
+    ############################################################################
+    # backward
+    dout = dscores
+    for df in reversed(dfs):
+      dout = df(dout)
+    
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
