@@ -139,7 +139,7 @@ class CaptioningRNN(object):
     (1) Use an affine transformation to compute the initial hidden state from the image features. This should produce an array of shape (N, H)
     '''
     h0 = np.matmul(features, W_proj)
-    h0 += b
+    h0 += b_proj
         
     '''
     (2) Use a word embedding layer to transform the words in captions_in from indices to vectors, giving an array of shape (N, T, W).
@@ -256,7 +256,28 @@ class CaptioningRNN(object):
     # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
     # a loop.                                                                 #
     ###########################################################################
-    pass
+    
+    h0 = np.matmul(features, W_proj)
+    h0 += b_proj
+        
+    captions[:, 0] = self._start
+    start_captions = self._start*np.ones((N, 1), dtype=np.int32)
+    
+    prev_h = h0
+    
+    for time in xrange(max_length):
+        we_out, cache_wefwd = word_embedding_forward(start_captions, W_embed)
+        
+        if self.cell_type == 'rnn':
+            next_h, cache_rsfwd = rnn_step_forward(we_out.squeeze(), prev_h, Wx, Wh, b)
+        else:
+            raise ValueError('Invalid cell_type "%s"' % cell_type)
+            
+        ta_out, cache_tafwd = temporal_affine_forward(np.expand_dims(next_h, axis=1), W_vocab, b_vocab)
+        
+        prev_h = next_h
+        captions[:, time] = np.argmax(ta_out, axis=2).squeeze()       
+        start_captions = captions[:, time]
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################

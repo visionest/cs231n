@@ -34,7 +34,7 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
   # and cache variables respectively.                                          #
   ##############################################################################
   
-  tmp = np.matmul(x, Wx) + np.matmul(prev_h, Wh) # (N, H)
+  tmp = np.matmul(x, Wx) + np.matmul(prev_h, Wh)# (N, H)
   tmp += b
     
   next_h = np.tanh(tmp)
@@ -75,13 +75,9 @@ def rnn_step_backward(dnext_h, cache):
   tmpdiff = dnext_h*(1 - np.tanh(tmp)**2)
   
   db = np.sum(tmpdiff, axis=0)
-    
   dx = np.matmul(tmpdiff, Wx.T)
-  
   dprev_h = np.matmul(tmpdiff, Wh.T)  
-    
   dWx = np.matmul(x.T, tmpdiff)
-
   dWh = np.matmul(prev_h.T, tmpdiff)
   
   ##############################################################################
@@ -180,17 +176,16 @@ def rnn_backward(dh, cache):
   dh0 = np.zeros((N, H))
   dWx = np.zeros((D, H))
   dWh = np.zeros((H, H))
-  db = np.zeros((H))
+  db = np.zeros(H)
   
-  for time in xrange(T-1,-1,-1):
+  for time in xrange(T-1, -1, -1):
     curr_dh = dh[time] + prev_dh
     prev_dx, prev_dh, prev_dWx, prev_dWh, prev_db = rnn_step_backward(curr_dh, cache[time])
     dx[time] += prev_dx
-    dh0 = prev_dh
     dWx += prev_dWx
     dWh += prev_dWh
     db += prev_db
-  
+  dh0 = prev_dh
   dx = transpose102(dx)    
 
   ##############################################################################
