@@ -171,6 +171,10 @@ class CaptioningRNN(object):
       h, cache = rnn_forward(x_embed, h0, Wx, Wh, b)
       #dfs.append(partial(df3, df=rnn_backward, cache=cache)) # with partial, parameter order is important
       dfs.append(lambda (dout): df3(dout=dout, df=rnn_backward, cache=cache))
+    elif (self.cell_type == 'lstm'):
+      h, cache = lstm_forward(x_embed, h0, Wx, Wh, b)
+      #dfs.append(partial(df3, df=rnn_backward, cache=cache)) # with partial, parameter order is important
+      dfs.append(lambda (dout): df3(dout=dout, df=lstm_backward, cache=cache))
 
     # 4)
     scores, cache4 = temporal_affine_forward(h, W_vocab, b_vocab)
