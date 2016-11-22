@@ -135,7 +135,70 @@ class CaptioningRNN(object):
     # defined above to store loss and gradients; grads[k] should give the      #
     # gradients for self.params[k].                                            #
     ############################################################################
-    pass
+    '''
+    (1) Use an affine transformation to compute the initial hidden state from the image features. This should produce an array of shape (N, H)
+    '''
+    h0 = np.matmul(features, W_proj)
+    h0 += b_proj
+        
+    '''
+    (2) Use a word embedding layer to transform the words in captions_in from indices to vectors, giving an array of shape (N, T, W).
+    '''
+    x, cache_embed = word_embedding_forward(captions_in, W_embed)
+    
+    '''
+    (3) Use either a vanilla RNN or LSTM (depending on self.cell_type) to process the sequence of input word vectors and produce hidden state vectors for all timesteps, producing an array of shape (N, T, H).
+    '''
+    if self.cell_type == 'rnn':
+        h, cache_fwd = rnn_forward(x, h0, Wx, Wh, b)
+    elif self.cell_type == 'lstm':
+        h, cache_fwd = lstm_forward(x, h0, Wx, Wh, b)
+    else:
+        raise ValueError('Invalid cell_type "%s"' % cell_type)
+      
+    '''
+    (4) Use a (temporal) affine transformation to compute scores over the vocabulary at every timestep using the hidden states, giving an array of shape (N, T, V).
+    '''
+    scores, cache_scores = temporal_affine_forward(h, W_vocab, b_vocab)
+    
+    '''
+    (5) Use (temporal) softmax to compute loss using captions_out, ignoring the points where the output word is <NULL> using the mask above.
+    '''
+    loss, dscores = temporal_softmax_loss(scores, captions_out, mask)
+    
+    '''
+    In the backward pass you will need to compute the gradient of the loss with respect to all model parameters. Use the loss and grads variables defined above to store loss and gradients; grads[k] should give the gradients for self.params[k].
+    '''
+    ###(4)
+    dh, dW_vocab, db_vocab = temporal_affine_backward(dscores, cache_scores)
+    
+    ###(3)
+    if self.cell_type == 'rnn':
+        dx, dh0, dWx, dWh, db = rnn_backward(dh, cache_fwd)
+    elif self.cell_type == 'lstm':
+        dx, dh0, dWx, dWh, db = lstm_backward(dh, cache_fwd)
+    else:
+        raise ValueError('Invalid cell_type "%s"' % cell_type)
+        
+    ###(2)
+    dW_embed = word_embedding_backward(dx, cache_embed)
+    
+    ###(1)
+    dW_proj = np.matmul(np.transpose(features), dh0)
+    db_proj = np.sum(dh0, axis=0)
+    
+    grads['W_proj'] = dW_proj
+    grads['b_proj'] = db_proj
+    
+    grads['W_embed'] = dW_embed
+    
+    grads['Wx'] = dWx
+    grads['Wh'] = dWh
+    grads['b'] = db
+    
+    grads['W_vocab'] = dW_vocab
+    grads['b_vocab'] = db_vocab
+    
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -197,7 +260,33 @@ class CaptioningRNN(object):
     # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
     # a loop.                                                                 #
     ###########################################################################
-    pass
+    
+    h0 = np.matmul(features, W_proj)
+    h0 += b_proj
+        
+    captions[:, 0] = self._start
+    start_captions = self._start*np.ones((N, 1), dtype=np.int32)
+    
+    prev_h = h0
+    prev_c = np.zeros_like(h0)
+    
+    for time in xrange(max_length):
+        we_out, cache_wefwd = word_embedding_forward(start_captions, W_embed)
+        
+        if self.cell_type == 'rnn':
+            next_h, cache_rsfwd = rnn_step_forward(we_out.squeeze(), prev_h, Wx, Wh, b)
+        elif self.cell_type == 'lstm':
+            next_h, next_c, cache_lsfwd = lstm_step_forward(we_out.squeeze(), prev_h, prev_c, Wx, Wh, b)
+            prev_c = next_c
+        else:
+            raise ValueError('Invalid cell_type "%s"' % cell_type)
+            
+        ta_out, cache_tafwd = temporal_affine_forward(np.expand_dims(next_h, axis=1), W_vocab, b_vocab)
+        
+        prev_h = next_h
+            
+        captions[:, time] = np.argmax(ta_out, axis=2).squeeze()       
+        start_captions = captions[:, time]
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
