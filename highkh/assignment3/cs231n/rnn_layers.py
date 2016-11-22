@@ -471,6 +471,7 @@ def lstm_backward(dh, cache):
   N, T, H = dh.shape
   x, prev_h, prev_c, Wx, Wh, b, next_c, next_h, a, a_i, a_f, a_o, a_g, i, f, o, g = cache[0]
   #print x.shape , cache[0][0].shape, cache[0][0].shape[-1]
+  # len(x.shape) = 2 가 나오는데 뭐지??
   D = cache[0][0].shape[-1]
 
   def transpose102(A):

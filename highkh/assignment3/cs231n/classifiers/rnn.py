@@ -280,13 +280,13 @@ class CaptioningRNN(object):
             prev_c = next_c
         else:
             raise ValueError('Invalid cell_type "%s"' % cell_type)
-            
-        ta_out, cache_tafwd = temporal_affine_forward(np.expand_dims(next_h, axis=1), W_vocab, b_vocab)
         
-        prev_h = next_h
-            
+        prev_h = next_h    
+        ta_out, cache_tafwd = temporal_affine_forward(np.expand_dims(next_h, axis=1), W_vocab, b_vocab)
+                       
         captions[:, time] = np.argmax(ta_out, axis=2).squeeze()       
         start_captions = captions[:, time]
+        
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
