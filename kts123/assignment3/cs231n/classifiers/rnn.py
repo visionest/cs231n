@@ -136,58 +136,49 @@ class CaptioningRNN(object):
     # gradients for self.params[k].                                            #
     ############################################################################
     
-    # forward
-    # (1) Use an affine transformation to compute the initial hidden state     #
-    #     from the image features. This should produce an array of shape (N, H)#
-    h0, cache_h0 = affine_forward(features, W_proj, b_proj)
+    def make_df(fn_backward, prev_dfs, Ws, cache)
+        def df(dout, g)
+            prev_douts = fn_backward(dout, cache)
+            results = []
+            for prev_df, prev_dout in zip(prev_dfs, prev_douts):
+                result = prev_df(prev_dout, g)
+                results.extend(result)            
+            prev_douts = prev_douts[len(prev_dfs):-1]
+            for w, prev_dout in zip(Ws, prev_douts)
+                g[w] = prev_dout
+            return results
+        return df
     
-    # (2) Use a word embedding layer to transform the words in captions_in     #
-    #     from indices to vectors, giving an array of shape (N, T, W).         #
-    x, x_cache = word_embedding_forward(captions_in, W_embed)
+    # b(1)
+    h0, cache_h0 = affine_forward(     features,   W_proj ,  b_proj)
+    df_affine    = make_df( cache_h0, [id],      ['W_proj', 'b_proj'], affine_backward)
     
-    # (3) Use either a vanilla RNN or LSTM (depending on self.cell_type) to    #
-    #     process the sequence of input word vectors and produce hidden state  #
-    #     vectors for all timesteps, producing an array of shape (N, T, H).    #
+    # b(2)
+    x, cache_x        = word_embedding_forward(captions_in, W_embed)
+    df_word_embedding = make_df(cache_x,       [],        ['W_embed'], word_embedding_backward)
+    
+    # (3) 
+    rnn_func_forward, rnn_func_backward = None, None
     if self.cell_type == 'rnn':
-       h, cache_h = rnn_forward(x, h0, Wx, Wh, b)
+        rnn_func_forward, rnn_func_backward = rnn_forward, rnn_backward
     if self.cell_type == 'lstm':
-       h, cache_h = lstm_forward(x, h0, Wx, Wh, b)
-    
-    # (4) Use a (temporal) affine transformation to compute scores over the    #
-    #     vocabulary at every timestep using the hidden states, giving an      #
-    #     array of shape (N, T, V).                                            #
-    score, cache_score = temporal_affine_forward(h, W_vocab, b_vocab)
-    
-    # (5) Use (temporal) softmax to compute loss using captions_out, ignoring  #
-    #     the points where the output word is <NULL> using the mask above.     #
-    #                                                                          #
-    loss, dout = temporal_softmax_loss(score, captions_out, mask)
-    
-    ############################################################################
-    #                             END OF YOUR CODE                             #
-    ############################################################################
-    
-    # (4) score, cache_score = temporal_affine_forward(h, W_vocab, b_vocab)
-    dh, dW_vocab, db_vocab = temporal_affine_backward(dout, cache_score)
-    
-    # (3)  if self.cell_type == 'rnn':
-    #   h, cache_h = rnn_forward(x, h0, Wx, Wh, b)
-    if self.cell_type == 'rnn':
-        dx, dh0, dWx, dWh, db = rnn_backward(dh, cache_h)
-    if self.cell_type == 'lstm':
-        dx, dh0, dWx, dWh, db = lstm_backward(dh, cache_h)
+        rnn_func_forward, rnn_func_backward  = lstm_forward, lstm_backward
         
-    #(2)  x, x_cache = word_embedding_forward(captions_in, W_embed)
-    dW_embed = word_embedding_backward(dx, x_cache)
+    h, cache_h  = rnn_func_forward(   x,                 h0 ,          Wx ,  Wh ,  b)
+    df_rnn_func = make_df(cache_h,   [df_word_embedding, df_affine], ['Wx', 'Wh', 'b'], rnn_func_backward)
+       
+    # (4) 
+    score, cache_score = temporal_affine_forward(h,              W_vocab ,  b_vocab)
+    df_temporal_affine = make_df(cache_score,   [df_rnn_func], ['W_vocab', 'b_vocab'], temporal_affine_backward)
+          
+    # (5) 
+    loss, dscore = temporal_softmax_loss(score, captions_out, mask)
     
-    #(1) h0, cache_h0 = affine_forward(features, W_proj, b_proj)
-    dfeatures, dW_proj, db_proj = affine_backward(dh0, cache_h0)
+    df_root = lambda : df_temporal_affine(dscore, grads)
     
-    d = grads
-    d['W_proj'], d['b_proj']   = dW_proj, db_proj
-    d['W_embed']               = dW_embed
-    d['Wx'], d['Wh'], d['b']   = dWx, dWh, db
-    d['W_vocab'], d['b_vocab'] = dW_vocab, db_vocab
+    #############################################################
+    # backward
+    dfeature, dcaptions_in = df_root()
     
     return loss, grads
 
