@@ -88,16 +88,20 @@ class KNearestNeighbor(object):
     num_test  = X.shape[0]
     num_train = self.X_train.shape[0]
     dists     = np.zeros((num_test, num_train))
+   
+    B   = self.X_train
+    B_square = np.sum(np.square(B), axis = 1)
+        
     for i in xrange(num_test):
         ####################################################################
         # i번째 테스트 포인트와 모든 훈련 포인트와의 유클리드 거리 계산 후 #
         # 그 값을 dists[i, :] 에 저장하시오                                #
         ####################################################################
         A   = X[i]
-        B   = self.X_train
+        #B   = self.X_train
     
         A_square = np.sum(np.square(A))
-        B_square = np.sum(np.square(B), axis = 1)
+        #B_square = np.sum(np.square(B), axis = 1)
     
         AB = np.dot(A, np.transpose(B))
       
