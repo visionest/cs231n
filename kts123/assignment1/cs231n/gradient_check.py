@@ -1,3 +1,5 @@
+#-*- coding: utf-8 -*-
+
 import numpy as np
 from random import randrange
 
@@ -102,23 +104,30 @@ def eval_numerical_gradient_net(net, inputs, output, h=1e-5):
 
 
 def grad_check_sparse(f, x, analytic_grad, num_checks=10, h=1e-5):
+  """ 랜덤하게 몇 개의 원소를 샘플링하고 그 지점에서의 미분값만 계산한다
   """
-  sample a few random elements and only return numerical
-  in this dimensions.
-  """
+  for i in xrange(num_checks):                   # num_check 만큼 반복
+    
+    ix = tuple([randrange(m) for m in x.shape])  # 임의의 포인트 고르기.
 
-  for i in xrange(num_checks):
-    ix = tuple([randrange(m) for m in x.shape])
+    oldval = x[ix]                               # x 값 저장
+    x[ix]  = oldval + h                          # x 값을 h 만큼 증가
+    fxph   = f(x)                                # f(x + h) 계산
+    
+    x[ix]  = oldval - h                          # x 값을 h 만큼 감소
+    fxmh   = f(x)                                # f(x - h) 계산
+    x[ix]  = oldval                              # x 값 복원
 
-    oldval = x[ix]
-    x[ix] = oldval + h # increment by h
-    fxph = f(x) # evaluate f(x + h)
-    x[ix] = oldval - h # increment by h
-    fxmh = f(x) # evaluate f(x - h)
-    x[ix] = oldval # reset
-
-    grad_numerical = (fxph - fxmh) / (2 * h)
-    grad_analytic = analytic_grad[ix]
-    rel_error = abs(grad_numerical - grad_analytic) / (abs(grad_numerical) + abs(grad_analytic))
-    print 'numerical: %f analytic: %f, relative error: %e' % (grad_numerical, grad_analytic, rel_error)
+    grad_numerical = (fxph - fxmh) / (2 * h)     # 수치 미분값 계산    
+    
+    grad_analytic = analytic_grad[ix]            # 수식으로 구한 미분값 얻기.
+    
+    diff      = abs(grad_numerical - grad_analytic)         # 두 미분값의
+    diff_max  = (abs(grad_numerical) + abs(grad_analytic))  # 상대 오차
+    rel_error = diff/diff_max                               # 계산
+                                                 
+    print 'numerical: %f analytic: %f, relative error : %e' % \
+        (grad_numerical, grad_analytic, rel_error)           # 결과 프린트
+        
+        
 

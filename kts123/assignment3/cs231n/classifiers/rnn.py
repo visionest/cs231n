@@ -136,6 +136,8 @@ class CaptioningRNN(object):
     # gradients for self.params[k].                                            #
     ############################################################################
     
+    # see https://cloud.githubusercontent.com/assets/1628848/20554486/aaefeba4-b19f-11e6-8a45-b08c7b4513e0.png
+        
     def make_df(fn_backward, prev_dfs, Ws, cache)
         def df(dout, g)
             prev_douts = fn_backward(dout, cache)
@@ -149,11 +151,11 @@ class CaptioningRNN(object):
             return results
         return df
     
-    # b(1)
+    # (1)
     h0, cache_h0 = affine_forward(     features,   W_proj ,  b_proj)
     df_affine    = make_df( cache_h0, [id],      ['W_proj', 'b_proj'], affine_backward)
     
-    # b(2)
+    # (2)
     x, cache_x        = word_embedding_forward(captions_in, W_embed)
     df_word_embedding = make_df(cache_x,       [],        ['W_embed'], word_embedding_backward)
     
